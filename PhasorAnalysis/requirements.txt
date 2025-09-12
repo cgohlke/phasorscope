@@ -1,0 +1,8 @@
+cellpose
+numpy
+pandas
+matplotlib
+scipy
+skimage
+tifffile
+phasorpy==0.7
