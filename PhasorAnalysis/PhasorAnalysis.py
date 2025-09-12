@@ -110,6 +110,9 @@ from skimage.morphology import disk
 
 print("Function definition...")
 
+# Resolution of figures
+DPI = os.environ.get('PHASOR_ANALYSIS_DPI', 300)
+
 
 def get_labeled_ROIs(img_bright, thr, n_regions=3):
     # this function gets the region of the two largest ROIs above a defined threshold, sorted by x-position (left to right)
@@ -193,7 +196,7 @@ def preprocess(folder_path, radius=None, sigma=None):
 def norm_slicing(tld, img, dark, region=3, plots=False):
 
     print("Automatically selecting ROIs...")
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(12, 4))
+    fig, axes = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12, 4))
     axes[0].imshow(img, cmap="gray")
     axes[0].set_title("Original")
     binary_mask = img > tld
@@ -224,7 +227,7 @@ def norm_slicing(tld, img, dark, region=3, plots=False):
     CH3_ROI = img[CH3_slice] - dark
 
     if plots:
-        fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(6, 4))
+        fig, axes = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(6, 4))
         axes[0].imshow(CH1_ROI)
         axes[0].set_title("CH1")
         axes[1].imshow(CH2_ROI)
@@ -244,7 +247,7 @@ def ratio_sc(ch1, ch2, ch3, plots=False):
     R_cos_int = ch2 / ch1
     R_sin_int = ch3 / ch1
     if plots:
-        fig, ax = plt.subplots(ncols=2)
+        fig, ax = plt.subplots(ncols=2, dpi=DPI)
         ax = np.ravel(ax)
         ax[0].imshow(R_cos_int, vmin=0.5, vmax=1.5, cmap="bwr")
         ax[0].set_axis_off()
@@ -445,7 +448,7 @@ for ch_slice in Ch_slice_new:
     )
 
 print("Channel Ratios - Define and plot...")
-fig, ax = plt.subplots(ncols=1)
+fig, ax = plt.subplots(ncols=1, dpi=100)
 min1 = np.percentile(img_exp[Ch_slices[0]], 1)
 max1 = np.percentile(img_exp[Ch_slices[0]], 99)
 ax.imshow(img_exp[Ch_slices[0]], vmin=min1, vmax=max1)
@@ -543,7 +546,7 @@ tmp_img, masks = Process_Img(CH_list[0], Processing)
 # Calculate the phasor using the calibration and processing parameters defined above
 img_g, img_s, img_ph, img_mod = Calculate_Phasors(CH_list, calibration, Processing)
 
-fig, ax = plt.subplots(ncols=4, figsize=(12, 4))
+fig, ax = plt.subplots(ncols=4, dpi=DPI, figsize=(12, 4))
 ax[1].imshow(tmp_img, vmax=np.percentile(tmp_img, 99.9), cmap="hot")
 ax[1].set_title("Processed image")
 ax[1].set_axis_off()
@@ -692,7 +695,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         plt.tight_layout()
         plt.show()
 
-        fig, ax = plt.subplots(ncols=2, dpi=400, figsize=figsize)
+        fig, ax = plt.subplots(ncols=2, dpi=DPI, figsize=figsize)
         gs_lim = 1
         ax[1].hist2d(
             img_g[masks > 0],
