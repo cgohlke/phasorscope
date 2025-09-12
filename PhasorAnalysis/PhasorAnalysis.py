@@ -175,9 +175,11 @@ def preprocess(folder_path, radius=None, sigma=None):
         return None  # Explicitly return None to signal an error
     for file in files:
         if file == files[0]:
-            img = tifffile.imread(folder_path + "/" + file)[:, :, None]
+            img = tifffile.imread(folder_path + "/" + file)[:, :, None].astype(np.float32)
         else:
-            img = np.concatenate((img, tifffile.imread(folder_path + "/" + file)[:, :, None]), axis=2)
+            img = np.concatenate(
+                (img, tifffile.imread(folder_path + "/" + file)[:, :, None].astype(np.float32)), axis=2
+            )
     if radius is not None:
         print(f"Removing hot pixels with median filter radius: {radius}")
         disk_element = disk(radius)
