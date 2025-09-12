@@ -1,5 +1,8 @@
 #!/usr/bin/env python
+# coding: utf-8
 
+# Modified by Christoph Gohlke
+#
 # Current version: 2.1 (2025.05.14)
 #
 # Previous version: 2.0 (2025.05.09)
@@ -457,9 +460,9 @@ R_cos_int[np.isnan(R_cos_int)] = np.nanmean(R_cos_int)
 R_sin_int[np.isnan(R_sin_int)] = np.nanmean(R_sin_int)
 
 # Creates folder for storing analysis parameters
-name = Experiment_Folder_Path + "Experiments_PhasorScope"
-directory = Path(Experiment_Folder_Path) / name
-directory.mkdir(exist_ok=True)
+# name = Experiment_Folder_Path + "Experiments_PhasorScope"
+# directory = Path(Experiment_Folder_Path) / name
+# directory.mkdir(exist_ok=True)
 
 # Creates dictionary for storing analysis parameters
 calibration = {
