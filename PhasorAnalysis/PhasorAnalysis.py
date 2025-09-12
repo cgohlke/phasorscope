@@ -313,28 +313,33 @@ SinCos_Lambda = np.asarray([400, 700])
 
 # @title **User input - Declaring file paths** (copy-paste path to each file, see below)
 # %% CALIBRATION PATHS
+
+# Path to the data root directory
+try:
+    # running on Google Colab
+    from google.colab import drive
+
+    data_path = "/content/drive/Shareddrives/Prescher Lab/Phasor Data Analysis/Data for tutorial/"
+except ImportError:
+    # running locally
+    data_path = "Data for tutorial/"
+
 # Path to the dark calibration file (same parameters as experiments)
-Dark_Path = "/content/drive/Shareddrives/Prescher Lab/Phasor Data Analysis/Data for tutorial/Calibration/Dark - 2min"
+Dark_Path = data_path + "Calibration/Dark - 2min"
 
 # Path to the dark calibration file for bright calibration (same parameters as bright)
-Dark_Bright_Path = (
-    "/content/drive/Shareddrives/Prescher Lab/Phasor Data Analysis/Data for tutorial/Calibration/Dark - 200ms"
-)
+Dark_Bright_Path = data_path + "Calibration/Dark - 200ms"
 
 # Path to the bright calibration file
-Bright_Path = (
-    "/content/drive/Shareddrives/Prescher Lab/Phasor Data Analysis/Data for tutorial/Calibration/Bright - Lamp"
-)
+Bright_Path = data_path + "Calibration/Bright - Lamp"
 
 # %% EXPERIMENT FOR REGISTRATION
 # Path to the registration experiment (one experiment from the dataset)
-Registration_Path = (
-    "/content/drive/Shareddrives/Prescher Lab/Phasor Data Analysis/Data for tutorial/Experiments/MB-YenL - 1 - Bio"
-)
+Registration_Path = data_path + "Experiments/MB-YenL - 1 - Bio"
 
 # %% EXPERIMENT ANALYSIS
 # Path to the experiment folder (inside this, each experiment is a folder with .tiff files for each frame)
-Experiment_Folder_Path = "/content/drive/Shareddrives/Prescher Lab/Phasor Data Analysis/Data for tutorial/Experiments"
+Experiment_Folder_Path = data_path + "Experiments"
 
 # Whether to save analyzed images as PNG (slower)
 FLAG_SAVE_IMAGES = "True"  # @param ["True", "False"]
