@@ -1,2 +1,1 @@
-# phasorscope
-Code for the PhasorScope project
+# Code for the PhasorScope project
