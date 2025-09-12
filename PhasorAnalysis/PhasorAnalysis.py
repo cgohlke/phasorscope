@@ -1,25 +1,24 @@
 #!/usr/bin/env python
-# coding: utf-8
 
 # Current version: 2.1 (2025.05.14)
-# 
+#
 # Previous version: 2.0 (2025.05.09)
-# 
+#
 # ```
 # MIT License
-# 
+#
 # Copyright (c) 2023-2025 Lorenzo Scipioni
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -30,43 +29,43 @@
 # ```
 
 # # **Introduction**
-# 
+#
 # This is a code for processing sine-cosine spectral data developed for bioluminescence phasors on the Phasor Scope.
-# 
+#
 # ---
-# 
-# 
+#
+#
 # By *Lorenzo Scipioni*
-# 
+#
 # ---
-# 
+#
 # Files needed (tiff format):
 # 1.   3-channel images (INT - COS - SIN)
 # 2.   Bright Calibration
 # 3.   Dark Calibration
 # 4.   Registration file
-# 
-# 
-# 
-# 
+#
+#
+#
+#
 
 # # **Flags**
 # **FLAG_SAVE_IMAGES:**
-# 
+#
 # Set it to **True** if you want the data to be saved (e.g., overtime exp, BRET efficiency and other experiments that need postprocessing), otherwise set it to **False** (saves time and storage, processed files are large)
-# 
+#
 # **FLAG_REGISTRATION_PRECALCULATE:**
-# 
+#
 # Set it to **True** if you want the registration matrix to be calculated on the first image in the folder and applied to the rest (more stable between files, better for dim samples but register on the brightest). Set it to **False** if you want the registration to be recalculated for each file.
-# 
+#
 # # **Calibration Paths**
 # Copy-paste here the path to the calibration **FOLDER** (files in .tif format from your Google Drive)
-# 
+#
 # To do so, right-click on the file or folder from the menu on the left and select "Copy path", then paste it between apostrophes (' ') below.
-# 
+#
 # # **Experiment Analysis**
 # Copy-paste here the path to the experiment **FOLDER** (containing the .tif files arranged in **FOLDERS** of the experiments you want to analyze.)
-# 
+#
 # To do so, right-click on the file or folder from the menu on the left and select "Copy path", then paste it between apostrophes (' ') below.
 
 # In[ ]:
@@ -754,7 +753,3 @@ df_all.to_excel(output_path)
 
 
 # In[ ]:
-
-
-
-
