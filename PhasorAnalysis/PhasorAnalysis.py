@@ -76,6 +76,10 @@
 
 # @title **Automatic - Install and import libraries**
 
+import time
+
+time_started = time.perf_counter()
+
 try:
     print("Mounting Google Drive...")
     from google.colab import drive
@@ -129,7 +133,10 @@ if DEBUG:
 print("Function definition...")
 
 # Resolution of figures
-DPI = float(os.environ.get('PA_DPI', 150))
+DPI = float(os.environ.get('PA_DPI', 300))
+
+# image interpolation
+INTERPOLATION = os.environ.get('PA_INTERPOLATION', 'nearest')
 
 
 def get_labeled_ROIs(img_bright, thr, n_regions=3):
@@ -193,27 +200,35 @@ def preprocess(folder_path, radius=None, sigma=None):
     if radius is not None:
         print(f"Removing hot pixels with median filter radius: {radius}")
         disk_element = disk(radius)
-        img = [median(im, disk_element, mode="reflect") for im in img]
+        for i, im in enumerate(img):
+            im = median(im, disk_element, mode="reflect")
+            img[i] = im
     if sigma is not None:
         print(f"Applying gaussian smoothing sigma: {sigma}...")
-        img = [gaussian_filter(im, sigma=sigma) for im in img]
-    return np.dstack(img)
+        for i, im in enumerate(img):
+            im = gaussian_filter(im, sigma=sigma)
+            img[i] = im
+    stack = np.dstack(img)
+    if DEBUG:
+        print(f"{stack.shape=}, {stack.dtype=}")
+    return stack
 
 
 def norm_slicing(tld, img, dark, region=3, plots=False):
 
     print("Automatically selecting ROIs...")
+
     fig, axes = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12, 4))
-    axes[0].imshow(img, cmap="gray")
+    axes[0].imshow(img, cmap="gray", interpolation=INTERPOLATION)
     axes[0].set_title("Original")
     binary_mask = img > tld
-    axes[1].imshow(binary_mask, cmap="gray")
+    axes[1].imshow(binary_mask, cmap="gray", interpolation=INTERPOLATION)
     axes[1].set_title("Manual Threshold")
+    axes[1].set_axis_off()
     labeled_rois_img, rois_info = get_labeled_ROIs(img, tld, region)
-    axes[2].imshow(labeled_rois_img, cmap="viridis")
+    axes[2].imshow(labeled_rois_img, cmap="viridis", interpolation=INTERPOLATION)
     axes[2].set_title("Detected ROIs")
-    for ax in axes:
-        ax.set_axis_off()
+    axes[2].set_axis_off()
     plt.tight_layout()
     plt.show()
 
@@ -235,11 +250,11 @@ def norm_slicing(tld, img, dark, region=3, plots=False):
 
     if plots:
         fig, axes = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(6, 4))
-        axes[0].imshow(CH1_ROI)
+        axes[0].imshow(CH1_ROI, interpolation=INTERPOLATION)
         axes[0].set_title("CH1")
-        axes[1].imshow(CH2_ROI)
+        axes[1].imshow(CH2_ROI, interpolation=INTERPOLATION)
         axes[1].set_title("CH2")
-        axes[2].imshow(CH3_ROI)
+        axes[2].imshow(CH3_ROI, interpolation=INTERPOLATION)
         axes[2].set_title("CH3")
         for ax in axes:
             ax.set_axis_off()
@@ -256,9 +271,9 @@ def ratio_sc(ch1, ch2, ch3, plots=False):
     if plots:
         fig, ax = plt.subplots(ncols=2, dpi=DPI)
         ax = np.ravel(ax)
-        ax[0].imshow(R_cos_int, vmin=0.5, vmax=1.5, cmap="bwr")
+        ax[0].imshow(R_cos_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
         ax[0].set_axis_off()
-        ax[1].imshow(R_sin_int, vmin=0.5, vmax=1.5, cmap="bwr")
+        ax[1].imshow(R_sin_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
         ax[1].set_axis_off()
         plt.show()
     return R_cos_int, R_sin_int
@@ -382,11 +397,13 @@ print("Loading Dark Files... ")
 images_dark = preprocess(Dark_Path, radius=radius)
 dark = np.median(images_dark)
 
+print()
 print("Loading Bright-Dark Files... ")
 # Load bright dark path (for bright) and calculate offset
 images_bright_dark = preprocess(Dark_Bright_Path, radius=radius)
 bright_dark = np.median(images_bright_dark)
 
+print()
 print("Loading Calibration Files... ")
 # Load bright IMAGE and remove offset
 images_bright = preprocess(Bright_Path, radius=radius, sigma=sigma)
@@ -407,7 +424,7 @@ if DEBUG:
 
 # Extracts ROIs based on threshold, saves ROIs as images and stored pixel coordinates (slice)
 CH1_ROI, CH2_ROI, CH3_ROI, CH1_slice, CH2_slice, CH3_slice = norm_slicing(threshold_value, img_bright, dark)
-Ch_slice = [CH1_slice, CH2_slice, CH3_slice]
+Ch_slices = [CH1_slice, CH2_slice, CH3_slice]
 
 
 # In[ ]:
@@ -421,32 +438,33 @@ img_exp = np.median(preprocess(Registration_Path), 2)
 
 print("Correct for channel shifts...")
 # Apply slicing (computed above) to registration image
-CH_list = [normalize_percentile(img_exp[Ch_slice[n]]) for n in range(3)]
+CH_list = [normalize_percentile(img_exp[Ch_slices[n]]) for n in range(3)]
 
 shift = autocorr(CH_list)
 # Select the maximum shift found through the autocorrelation function
 crop = np.abs(shift).max()
-Ch_slice_crop = []
 
 # Apply the crop to all the slices (this step avoids potential negative coordinates)
-for n in range(0, 3):
-    Ch_slice_crop.append(
-        (
-            slice(Ch_slice[n][0].start + crop, Ch_slice[n][0].stop - crop),
-            slice(Ch_slice[n][1].start + crop, Ch_slice[n][1].stop - crop),
-        )
+Ch_slices = [
+    (
+        slice(Ch_slices[n][0].start + crop, Ch_slices[n][0].stop - crop),
+        slice(Ch_slices[n][1].start + crop, Ch_slices[n][1].stop - crop),
     )
+    for n in range(3)
+]
 
 # Apply the shifts calculated above
-Ch_slice_new = []
-Ch_slice_new.append(Ch_slice_crop[0])
-for n in range(1, 3):
-    Ch_slice_new.append(
-        (
-            slice(Ch_slice_crop[n][0].start - shift[n - 1][0], Ch_slice_crop[n][0].stop - shift[n - 1][0]),
-            slice(Ch_slice_crop[n][1].start - shift[n - 1][1], Ch_slice_crop[n][1].stop - shift[n - 1][1]),
-        )
-    )
+Ch_slices = [
+    Ch_slices[0],
+    (
+        slice(Ch_slices[1][0].start - shift[0][0], Ch_slices[1][0].stop - shift[0][0]),
+        slice(Ch_slices[1][1].start - shift[0][1], Ch_slices[1][1].stop - shift[0][1]),
+    ),
+    (
+        slice(Ch_slices[2][0].start - shift[1][0], Ch_slices[2][0].stop - shift[1][0]),
+        slice(Ch_slices[2][1].start - shift[1][1], Ch_slices[2][1].stop - shift[1][1]),
+    ),
+]
 
 
 # In[ ]:
@@ -471,21 +489,20 @@ if DEBUG:
     print(f"{Crop=}")
 
 # Return cropped ROIs
-Ch_slices = []
-for ch_slice in Ch_slice_new:
-    Ch_slices.append(
-        (
-            slice(ch_slice[0].start + Top, ch_slice[0].stop - Bottom),
-            slice(ch_slice[1].start + Left, ch_slice[1].stop - Right),
-        )
+Ch_slices = [
+    (
+        slice(ch_slice[0].start + Top, ch_slice[0].stop - Bottom),
+        slice(ch_slice[1].start + Left, ch_slice[1].stop - Right),
     )
+    for ch_slice in Ch_slices
+]
 
 print("Channel Ratios - Define and plot...")
 fig, ax = plt.subplots(ncols=1, dpi=100)
 min1 = np.percentile(img_exp[Ch_slices[0]], 1)
 max1 = np.percentile(img_exp[Ch_slices[0]], 99)
-ax.imshow(img_exp[Ch_slices[0]], vmin=min1, vmax=max1)
-ax.set_axis_off()
+ax.imshow(img_exp[Ch_slices[0]], vmin=min1, vmax=max1, interpolation=INTERPOLATION)
+# ax.set_axis_off()
 plt.show()
 
 
@@ -593,19 +610,19 @@ tmp_img, masks = Process_Img(CH_list[0], Processing)
 img_g, img_s, img_ph, img_mod = Calculate_Phasors(CH_list, calibration, Processing)
 
 fig, ax = plt.subplots(ncols=4, dpi=DPI, figsize=(12, 4))
-ax[1].imshow(tmp_img, vmax=np.percentile(tmp_img, 99.9), cmap="hot")
+ax[1].imshow(tmp_img, vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
 ax[1].set_title("Processed image")
 ax[1].set_axis_off()
 ax[1].set_aspect(1)
-ax[2].imshow(masks, cmap="nipy_spectral")
+ax[2].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
 ax[2].set_title("Segmentation")
 ax[2].set_axis_off()
 ax[2].set_aspect(1)
-# ax[0].imshow(CH_list[0], vmax=np.percentile(tmp_img, 99.9), cmap="hot")
+# ax[0].imshow(CH_list[0], vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
 # ax[0].set_title("Original Image")
 # ax[0].set_axis_off()
 # ax[0].set_aspect(1)
-ax[0].imshow(CH_list[0], vmax=np.percentile(CH_list[0], 99.9), cmap="hot")
+ax[0].imshow(CH_list[0], vmax=np.percentile(CH_list[0], 99.9), cmap="hot", interpolation=INTERPOLATION)
 ax[0].set_title("Original Image")
 ax[0].set_axis_off()
 ax[0].set_aspect(1)
@@ -711,7 +728,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
 
         # Images - Phasors as median of g,s
         fig, ax = plt.subplots(ncols=4, dpi=DPI, figsize=figsize)
-        img1 = ax[0].imshow(masks, cmap="nipy_spectral")
+        img1 = ax[0].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
         cbar = plt.colorbar(img1)
         cbar.ax.set_title("Cell idx")
         ax[0].set_axis_off()
@@ -732,15 +749,17 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 horizontalalignment="center",
                 verticalalignment="center",
             )
-        img2 = ax[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99))
+        img2 = ax[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99), interpolation=INTERPOLATION)
         cbar = plt.colorbar(img2)
         cbar.ax.set_title("Intensity")
         ax[1].set_axis_off()
-        img3 = ax[2].imshow(img_ph * (masks > 0), cmap=cmap_custom, vmin=0, vmax=math.pi * 2)
+        img3 = ax[2].imshow(
+            img_ph * (masks > 0), cmap=cmap_custom, vmin=0, vmax=math.pi * 2, interpolation=INTERPOLATION
+        )
         cbar = plt.colorbar(img3)
         cbar.ax.set_title("Phase (rad)")
         ax[2].set_axis_off()
-        img4 = ax[3].imshow(img_mod * (masks > 0), cmap='nipy_spectral', vmin=0, vmax=1)
+        img4 = ax[3].imshow(img_mod * (masks > 0), cmap='nipy_spectral', vmin=0, vmax=1, interpolation=INTERPOLATION)
         cbar = plt.colorbar(img4)
         cbar.ax.set_title("Modulation")
         ax[3].set_axis_off()
@@ -818,6 +837,9 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
             print(exc)
 
 df_all.to_excel(os.path.join(os.path.dirname(exp_path), "All experiments.xlsx"))
+
+if DEBUG:
+    print(f'Runtime {time.perf_counter() - time_started:.0f} s')
 
 
 # In[ ]:
