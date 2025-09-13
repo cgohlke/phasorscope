@@ -111,7 +111,7 @@ from skimage.morphology import disk
 print("Function definition...")
 
 # Resolution of figures
-DPI = os.environ.get('PHASOR_ANALYSIS_DPI', 300)
+DPI = float(os.environ.get('PA_DPI', 150))
 
 
 def get_labeled_ROIs(img_bright, thr, n_regions=3):
@@ -349,6 +349,12 @@ Experiment_Folder_Path = data_path + "Experiments"
 # Whether to save analyzed images as PNG (slower)
 FLAG_SAVE_IMAGES = "True"  # @param ["True", "False"]
 
+Dark_Path = os.environ.get('PA_DARK_PATH', Dark_Path)
+Dark_Bright_Path = os.environ.get('PA_DARK_BRIGHT_PATH', Dark_Bright_Path)
+Bright_Path = os.environ.get('PA_BRIGHT_PATH', Bright_Path)
+Registration_Path = os.environ.get('PA_REGISTRATION_PATH', Registration_Path)
+Experiment_Folder_Path = os.environ.get('PA_EXPERIMENT_PATH', Experiment_Folder_Path)
+
 
 # In[ ]:
 
@@ -380,6 +386,9 @@ img_bright = np.median(images_bright, 2) - bright_dark
 
 # Threshold value to allow algorithm to automatically find the three channels (ROI: Region Of Interest)
 threshold_value = 3850  # @param {type: "slider", min: 200, max: 10000}
+
+threshold_value = float(os.environ.get('PA_THRESHOLD_VALUE', threshold_value))
+
 # Extracts ROIs based on threshold, saves ROIs as images and stored pixel coordinates (slice)
 CH1_ROI, CH2_ROI, CH3_ROI, CH1_slice, CH2_slice, CH3_slice = norm_slicing(threshold_value, img_bright, dark)
 Ch_slice = [CH1_slice, CH2_slice, CH3_slice]
@@ -434,6 +443,11 @@ Left = 5  # @param {type: "slider", min: 0, max: 200}
 Right = 30  # @param {type: "slider", min: 0, max: 200}
 Top = 10  # @param {type: "slider", min: 0, max: 500}
 Bottom = 10  # @param {type: "slider", min: 0, max: 500}
+
+Left = int(os.environ.get('PA_LEFT', Left))
+Right = int(os.environ.get('PA_RIGHT', Right))
+Top = int(os.environ.get('PA_TOP', Top))
+Bottom = int(os.environ.get('PA_BOTTOM', Bottom))
 
 # Define manual cropping parameters
 Crop = [Top, Bottom, Left, Right]
@@ -528,6 +542,12 @@ Bkg_subtraction = 400  # @param {type: "slider", min: 0, max: 1001, step: 1}
 Cellpose_diameter = 356  # @param {type: "slider", min: 5, max: 600}
 # Radius of median filter to (g,s) coordinates
 Median_filter_GS = 1  # @param {type: "slider", min: 0, max: 21, step: 1}
+
+Time_binning = int(os.environ.get('PA_TIME_BINNING', Time_binning))
+Median_filter = int(os.environ.get('PA_MEDIAN_FILTER', Median_filter))
+Bkg_subtraction = float(os.environ.get('PA_BKG_SUBTRACTION', Bkg_subtraction))
+Cellpose_diameter = int(os.environ.get('PA_CELLPOSE_DIAMETER', Cellpose_diameter))
+Median_filter_GS = int(os.environ.get('PA_MEDIAN_FILTER_GS', Median_filter_GS))
 
 # Store processing parameters
 Processing = {
@@ -657,7 +677,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         df = pd.DataFrame(columns=Columns, index=[])
 
         # Images - Phasors as median of g,s
-        fig, ax = plt.subplots(ncols=4, dpi=400, figsize=figsize)
+        fig, ax = plt.subplots(ncols=4, dpi=DPI, figsize=figsize)
         img1 = ax[0].imshow(masks, cmap="nipy_spectral")
         cbar = plt.colorbar(img1)
         cbar.ax.set_title("Cell idx")
