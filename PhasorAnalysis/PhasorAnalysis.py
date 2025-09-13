@@ -185,30 +185,19 @@ def plot_grid(ax, radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), c
 
 
 def preprocess(folder_path, radius=None, sigma=None):
-    files_all = os.listdir(folder_path)
-    files = []
-    img = None
-    for file in files_all:
-        if "tif" in file.split(".")[-1]:
-            files.append(file)
+    files = [f for f in os.listdir(folder_path) if os.path.splitext(f)[-1].lower() == '.tif']
     if not files:
-        print(f"Error: No 'tiff' files found in {folder_path}")
+        print(f"Error: No 'tiff' files found in {folder_path!r}")
         return None  # Explicitly return None to signal an error
-    for file in files:
-        if file == files[0]:
-            img = tifffile.imread(folder_path + "/" + file)[:, :, None].astype(np.float32)
-        else:
-            img = np.concatenate(
-                (img, tifffile.imread(folder_path + "/" + file)[:, :, None].astype(np.float32)), axis=2
-            )
+    img = [tifffile.imread(os.path.join(folder_path, f)).astype(np.float32) for f in files]
     if radius is not None:
         print(f"Removing hot pixels with median filter radius: {radius}")
         disk_element = disk(radius)
-        img = np.dstack([median(img[:, :, i], disk_element, mode="reflect") for i in range(img.shape[2])])
+        img = [median(im, disk_element, mode="reflect") for im in img]
     if sigma is not None:
         print(f"Applying gaussian smoothing sigma: {sigma}...")
-        img = np.dstack([gaussian_filter(img[:, :, i], sigma=sigma) for i in range(img.shape[2])])
-    return img
+        img = [gaussian_filter(im, sigma=sigma) for im in img]
+    return np.dstack(img)
 
 
 def norm_slicing(tld, img, dark, region=3, plots=False):
@@ -348,21 +337,21 @@ except ImportError:
     data_path = "Data for tutorial/"
 
 # Path to the dark calibration file (same parameters as experiments)
-Dark_Path = data_path + "Calibration/Dark - 2min"
+Dark_Path = os.path.join(data_path, "Calibration/Dark - 2min")
 
 # Path to the dark calibration file for bright calibration (same parameters as bright)
-Dark_Bright_Path = data_path + "Calibration/Dark - 200ms"
+Dark_Bright_Path = os.path.join(data_path, "Calibration/Dark - 200ms")
 
 # Path to the bright calibration file
-Bright_Path = data_path + "Calibration/Bright - Lamp"
+Bright_Path = os.path.join(data_path, "Calibration/Bright - Lamp")
 
 # %% EXPERIMENT FOR REGISTRATION
 # Path to the registration experiment (one experiment from the dataset)
-Registration_Path = data_path + "Experiments/MB-YenL - 1 - Bio"
+Registration_Path = os.path.join(data_path, "Experiments/MB-YenL - 1 - Bio")
 
 # %% EXPERIMENT ANALYSIS
 # Path to the experiment folder (inside this, each experiment is a folder with .tiff files for each frame)
-Experiment_Folder_Path = data_path + "Experiments"
+Experiment_Folder_Path = os.path.join(data_path, "Experiments")
 
 # Whether to save analyzed images as PNG (slower)
 FLAG_SAVE_IMAGES = "True"  # @param ["True", "False"]
@@ -642,14 +631,17 @@ plt.tight_layout()
 # @title **Automatic - Save calibration and processing parameters...**
 
 # Save the calibration parameters
-print(f"Saving calibration to {os.path.join(Experiment_Folder_Path, 'Calibration.npy')!r}")
-np.save(Experiment_Folder_Path + "/Calibration.npy", calibration)
-with open(os.path.join(Experiment_Folder_Path, "Calibration"), "w") as f:
+fname = os.path.join(Experiment_Folder_Path, 'Calibration.npy')
+print(f"Saving calibration to {fname!r}")
+np.save(fname, calibration)
+
+with open(os.path.join(Experiment_Folder_Path, 'Calibration'), "w") as f:
     f.write(str(calibration))
 
 # Save the processing parameters
-print(f"Saving parameters to {os.path.join(Experiment_Folder_Path, 'Processing.npy')!r}")
-np.save(Experiment_Folder_Path + "/Processing.npy", Processing)
+fname = os.path.join(Experiment_Folder_Path, 'Processing.npy')
+print(f"Saving parameters to {fname!r}")
+np.save(fname, Processing)
 
 
 # In[ ]:
@@ -660,11 +652,12 @@ figsize = (12, 5)
 
 # Load experiments from folder
 Experiments_Path = []
-for file in os.listdir(Experiment_Folder_Path):
-    if (os.path.isdir(Experiment_Folder_Path + "/" + file)) & ("Experiments_PhasorScope" not in file):
-        Experiments_Path.append(Experiment_Folder_Path + "/" + file)
+for fname in os.listdir(Experiment_Folder_Path):
+    fname = os.path.join(Experiment_Folder_Path, fname)
+    if os.path.isdir(fname) and "Experiments_PhasorScope" not in fname:
+        Experiments_Path.append(fname)
 
-print("Found: " + str(len(Experiments_Path)) + " files")
+print(f"Found: {len(Experiments_Path)} files")
 
 # Define dataframe
 print("Starting experiment(s) analysis...")
@@ -681,8 +674,8 @@ for i in range(1, n_steps):
 cmap_custom = mcolors.LinearSegmentedColormap.from_list("hsv_black_start", colors)
 
 # Load processing and calibration parameters
-Processing = np.load(Experiment_Folder_Path + "/Processing.npy", allow_pickle=True).item()
-Calibration = np.load(Experiment_Folder_Path + "/Calibration.npy", allow_pickle=True).item()
+Processing = np.load(os.path.join(Experiment_Folder_Path, "Processing.npy"), allow_pickle=True).item()
+Calibration = np.load(os.path.join(Experiment_Folder_Path, "Calibration.npy"), allow_pickle=True).item()
 
 # Compute experiment analysis.
 # The loop calibrates and processes the experiment data one by one.
@@ -697,8 +690,8 @@ Calibration = np.load(Experiment_Folder_Path + "/Calibration.npy", allow_pickle=
 for i_exp, exp_path in enumerate(Experiments_Path[:]):
     try:
         print(f"Experiment #{i_exp + 1}/{len(Experiments_Path)}")
-        fname = exp_path.split("/")[-1]
-        print("Experiment name: " + fname)
+        fname = os.path.basename(exp_path)
+        print(f"Experiment name: {fname}")
 
         print("Loading...")
         img_exp = preprocess(exp_path, radius=Calibration["Median Filter for hot pixels removal"])
@@ -824,9 +817,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         else:
             print(exc)
 
-output_dir = os.path.dirname(exp_path)
-output_path = os.path.join(output_dir, "All experiments.xlsx")
-df_all.to_excel(output_path)
+df_all.to_excel(os.path.join(os.path.dirname(exp_path), "All experiments.xlsx"))
 
 
 # In[ ]:
