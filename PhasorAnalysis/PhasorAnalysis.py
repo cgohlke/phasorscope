@@ -1,16 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Modified by Christoph Gohlke
 #
-# Current version: 2.1 (2025.05.14)
+# # PhasorAnalysis
 #
-# Previous version: 2.0 (2025.05.09)
+# Based on version 2.1 (2025.05.14).
+#
+# Original Copyright (c) 2023-2025 Lorenzo Scipioni.
+#
+# This file has been modified by Christoph Gohlke.
+#
+# All modifications are licensed under the MIT License:
 #
 # ```
 # MIT License
 #
-# Copyright (c) 2023-2025 Lorenzo Scipioni
+# Additional Copyright (c) 2025 Christoph Gohlke
+# Original Copyright (c) 2023-2025 Lorenzo Scipioni
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +37,7 @@
 # SOFTWARE.
 # ```
 
-# # **Introduction**
+# ## Introduction
 #
 # This is a code for processing sine-cosine spectral data developed for bioluminescence phasors on the Phasor Scope.
 #
@@ -47,12 +53,9 @@
 # 2.   Bright Calibration
 # 3.   Dark Calibration
 # 4.   Registration file
-#
-#
-#
-#
 
-# # **Flags**
+# ### Flags
+#
 # **FLAG_SAVE_IMAGES:**
 #
 # Set it to **True** if you want the data to be saved (e.g., overtime exp, BRET efficiency and other experiments that need postprocessing), otherwise set it to **False** (saves time and storage, processed files are large)
@@ -61,12 +64,14 @@
 #
 # Set it to **True** if you want the registration matrix to be calculated on the first image in the folder and applied to the rest (more stable between files, better for dim samples but register on the brightest). Set it to **False** if you want the registration to be recalculated for each file.
 #
-# # **Calibration Paths**
+# ### Calibration Paths
+#
 # Copy-paste here the path to the calibration **FOLDER** (files in .tif format from your Google Drive)
 #
 # To do so, right-click on the file or folder from the menu on the left and select "Copy path", then paste it between apostrophes (' ') below.
 #
-# # **Experiment Analysis**
+# ### Experiment Analysis
+#
 # Copy-paste here the path to the experiment **FOLDER** (containing the .tif files arranged in **FOLDERS** of the experiments you want to analyze.)
 #
 # To do so, right-click on the file or folder from the menu on the left and select "Copy path", then paste it between apostrophes (' ') below.
