@@ -89,6 +89,7 @@ except ImportError:
 print("Import libraries...")
 import math
 import os
+import traceback
 from pathlib import Path
 
 import cellpose
@@ -695,7 +696,7 @@ Calibration = np.load(Experiment_Folder_Path + "/Calibration.npy", allow_pickle=
 
 for i_exp, exp_path in enumerate(Experiments_Path[:]):
     try:
-        print("Experiment #" + str(i_exp + 1) + "/" + str(len(Experiments_Path)))
+        print(f"Experiment #{i_exp + 1}/{len(Experiments_Path)}")
         fname = exp_path.split("/")[-1]
         print("Experiment name: " + fname)
 
@@ -816,8 +817,12 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 "Processing": Processing,
             }
             np.savez_compressed(exp_path + "_Images.npz", Experiment_Images)
-    except Exception:
-        print("SKIPPED: Experiment #" + str(i_exp + 1) + "/" + str(len(Experiments_Path)))
+    except Exception as exc:
+        print(f"SKIPPED: Experiment #{i_exp + 1}/{len(Experiments_Path)}")
+        if DEBUG:
+            traceback.print_exc()
+        else:
+            print(exc)
 
 output_dir = os.path.dirname(exp_path)
 output_path = os.path.join(output_dir, "All experiments.xlsx")
