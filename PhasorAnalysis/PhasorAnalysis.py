@@ -131,7 +131,7 @@ if DEBUG:
 
 # @title **Automatic - Functions definition**
 
-print("Function definition...")
+print("Defining functions...")
 
 # Resolution of figures
 DPI = float(os.environ.get('PA_DPI', 300))
@@ -380,6 +380,8 @@ Bright_Path = os.path.normpath(os.environ.get('PA_BRIGHT_PATH', Bright_Path))
 Registration_Path = os.path.normpath(os.environ.get('PA_REGISTRATION_PATH', Registration_Path))
 Experiment_Folder_Path = os.path.normpath(os.environ.get('PA_EXPERIMENT_PATH', Experiment_Folder_Path))
 
+SAVE_IMAGES = os.environ.get('PA_SAVE_IMAGES', FLAG_SAVE_IMAGES) in {"1", "TRUE", "True"}
+
 if DEBUG:
     print(f"{Dark_Path=!r}")
     print(f"{Dark_Bright_Path=!r}")
@@ -399,19 +401,19 @@ sigma = 3.0
 radius = float(os.environ.get('PA_RADIUS', radius))
 sigma = float(os.environ.get('PA_SIGMA', sigma))
 
-print("Loading Dark Files... ")
+print("Loading Dark files... ")
 # Load dark path (for experiments) and calcute offset
 images_dark = preprocess(Dark_Path, radius=radius)
 dark = np.median(images_dark)
 
 print()
-print("Loading Bright-Dark Files... ")
+print("Loading Bright-Dark files... ")
 # Load bright dark path (for bright) and calculate offset
 images_bright_dark = preprocess(Dark_Bright_Path, radius=radius)
 bright_dark = np.median(images_bright_dark)
 
 print()
-print("Loading Calibration Files... ")
+print("Loading Calibration files... ")
 # Load bright IMAGE and remove offset
 images_bright = preprocess(Bright_Path, radius=radius, sigma=sigma)
 img_bright = np.median(images_bright, 2) - bright_dark
@@ -439,11 +441,11 @@ Ch_slices = [CH1_slice, CH2_slice, CH3_slice]
 
 # @title **Automatic - Initializing selected file for registration**
 
-print("Load registration experiment...")
+print("Loading registration experiment...")
 # Load and process registration image
 img_exp = np.median(preprocess(Registration_Path), 2)
 
-print("Correct for channel shifts...")
+print("Correcting channel shifts...")
 # Apply slicing (computed above) to registration image
 CH_list = [normalize_percentile(img_exp[Ch_slices[n]]) for n in range(3)]
 
@@ -506,6 +508,7 @@ Ch_slices = [
 
 print("Channel Ratios - Define and plot...")
 fig, ax = plt.subplots(ncols=1, dpi=100)
+fig.suptitle("Channel ratios")
 min1 = np.percentile(img_exp[Ch_slices[0]], 1)
 max1 = np.percentile(img_exp[Ch_slices[0]], 99)
 ax.imshow(img_exp[Ch_slices[0]], vmin=min1, vmax=max1, interpolation=INTERPOLATION)
@@ -592,6 +595,9 @@ Median_filter = int(os.environ.get('PA_MEDIAN_FILTER', Median_filter))
 Bkg_subtraction = int(os.environ.get('PA_BKG_SUBTRACTION', Bkg_subtraction))
 Cellpose_diameter = int(os.environ.get('PA_CELLPOSE_DIAMETER', Cellpose_diameter))
 Median_filter_GS = int(os.environ.get('PA_MEDIAN_FILTER_GS', Median_filter_GS))
+
+if Cellpose_diameter <= 0:
+    Cellpose_diameter = None  # let Cellpose choose the diameter
 
 # Store processing parameters
 Processing = {
@@ -725,7 +731,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         CH1, CH2, CH3 = (np.median(ch[:, :, : Processing["Time_binning"]], 2) for ch in [CH1, CH2, CH3])
         print("Applying image processing...")
         tmp_img, masks = Process_Img(CH1, Processing)
-        print("Calculating Phasors...")
+        print("Calculating phasors...")
         img_g, img_s, img_ph, img_mod = Calculate_Phasors([CH1, CH2, CH3], Calibration, Processing)
 
         print("Plotting phasors...")
@@ -756,7 +762,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 horizontalalignment="center",
                 verticalalignment="center",
             )
-        img2 = axs[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99), interpolation=INTERPOLATION)
+        img2 = axs[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99.9), interpolation=INTERPOLATION)
         cbar = plt.colorbar(img2)
         axs[1].set_title("Intensity")
         axs[1].set_axis_off()
@@ -772,6 +778,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         axs[3].set_axis_off()
         plt.suptitle(fname + " - Images")
         plt.tight_layout()
+        fig.savefig(exp_path + '_Images.png')
         plt.show()
 
         fig, axs = plt.subplots(ncols=2, dpi=DPI, figsize=figsize)
@@ -816,18 +823,39 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         axs[0].set_title("Phasor - Single cells")
         plt.suptitle(fname + " - Phasors")
         plt.tight_layout()
-        plt.show()
         plt.savefig(exp_path + "_Phasors.png")
+        plt.show()
 
         # Mask regions of interest in the phasor space using circular cursors:
-        cursor_real = 0.23, -0.16  # G coordinate of cursors
-        cursor_imag = 0.26, 0.20  # S coordinate of cursors
-        cursor_radius = 0.2, 0.2
+        print("Plotting cursors...")
 
-        mean = CH1
-        mean /= np.percentile(mean, 99)
-        mean = np.clip(mean, 0, 1.0)
-        mean = skimage.exposure.adjust_log(mean, 1)
+        cursor_real = [0.4, -0.2]  # G coordinate of cursors
+        cursor_imag = [0.5, 0.2]  # S coordinate of cursors
+        cursor_radius = [0.4, 0.3]
+
+        i = 0
+        while True:
+            if f"PA_CURSOR_G{i}" in os.environ and f"PA_CURSOR_S{i}" in os.environ and f"PA_CURSOR_R{i}" in os.environ:
+                if i == 0:
+                    cursor_real = []
+                    cursor_imag = []
+                    cursor_radius = []
+                cursor_real.append(float(os.environ[f"PA_CURSOR_G{i}"]))
+                cursor_imag.append(float(os.environ[f"PA_CURSOR_S{i}"]))
+                cursor_radius.append(float(os.environ[f"PA_CURSOR_R{i}"]))
+            else:
+                break
+            i += 1
+
+        if DEBUG:
+            print(f"{cursor_real=}")
+            print(f"{cursor_imag=}")
+            print(f"{cursor_radius=}")
+
+        # mean = CH1
+        # mean /= np.percentile(mean, 99.9)
+        # mean = np.clip(mean, 0, 1.0)
+        # mean = skimage.exposure.adjust_log(mean, 1)
 
         real = img_g
         imag = img_s
@@ -840,7 +868,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         fig, axs = plt.subplots(1, 2, figsize=(10, 4.8), dpi=DPI)
         fig.suptitle(f'{fname} - Cursors')
 
-        phasorplot = PhasorPlot(ax=axs[0], allquadrants=True, title='')
+        phasorplot = PhasorPlot(ax=axs[0], allquadrants=True, title='Phasor plot')
         phasorplot.hist2d(real, imag, cmap='Greys')
         for i in range(len(cursor_real)):
             phasorplot.circle(
@@ -849,22 +877,26 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 radius=cursor_radius[i],
                 color=CATEGORICAL[i],
                 linestyle='-',
+                linewidth=2,
             )
+        axs[0].set_xlabel('G')
+        axs[0].set_ylabel('S')
 
-        pseudo_color_image = pseudo_color(*cursors_masks, intensity=mean)
+        pseudo_color_image = pseudo_color(*cursors_masks)  #  intensity=mean
 
         axs[1].imshow(pseudo_color_image)
         axs[1].set_axis_off()
+        axs[1].set_title('Cursor masks')
         plt.tight_layout()
-        plt.show()
         fig.savefig(exp_path + '_Cursors.png')
+        plt.show()
 
         # Save results
         df.to_excel(exp_path + ".xlsx")
         df_all = pd.concat((df_all if not df_all.empty else None, df))
 
-        if FLAG_SAVE_IMAGES == "True":
-            print("Saving...")
+        if SAVE_IMAGES:
+            print("Saving images...")
             Experiment_Images = {
                 "CH_list": CH_list,
                 "masks": masks,
