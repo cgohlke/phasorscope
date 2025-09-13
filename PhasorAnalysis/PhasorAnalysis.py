@@ -75,6 +75,7 @@
 
 
 # @title **Automatic - Install and import libraries**
+
 try:
     print("Mounting Google Drive...")
     from google.colab import drive
@@ -90,10 +91,13 @@ import math
 import os
 from pathlib import Path
 
+import cellpose
+import matplotlib
 import matplotlib.colors as mcolors
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
+import scipy
 import scipy.ndimage
 import skimage
 import tifffile
@@ -101,6 +105,19 @@ from cellpose import models
 from scipy.ndimage import gaussian_filter
 from skimage.filters import median
 from skimage.morphology import disk
+
+# output additional information throughout the notebook
+DEBUG = os.environ.get('PA_DEBUG', "1") in {"1", "TRUE", "True"}
+
+if DEBUG:
+    print()
+    print(f"numpy {np.__version__}")
+    print(f"cellpose {np.__version__}")
+    print(f"scipy {scipy.__version__}")
+    print(f"pandas {pd.__version__}")
+    print(f"skimage {skimage.__version__}")
+    print(f"matplotlib {matplotlib.__version__}")
+    print(f"tifffile {tifffile.__version__}")
 
 
 # In[ ]:
@@ -349,11 +366,18 @@ Experiment_Folder_Path = data_path + "Experiments"
 # Whether to save analyzed images as PNG (slower)
 FLAG_SAVE_IMAGES = "True"  # @param ["True", "False"]
 
-Dark_Path = os.environ.get('PA_DARK_PATH', Dark_Path)
-Dark_Bright_Path = os.environ.get('PA_DARK_BRIGHT_PATH', Dark_Bright_Path)
-Bright_Path = os.environ.get('PA_BRIGHT_PATH', Bright_Path)
-Registration_Path = os.environ.get('PA_REGISTRATION_PATH', Registration_Path)
-Experiment_Folder_Path = os.environ.get('PA_EXPERIMENT_PATH', Experiment_Folder_Path)
+Dark_Path = os.path.normpath(os.environ.get('PA_DARK_PATH', Dark_Path))
+Dark_Bright_Path = os.path.normpath(os.environ.get('PA_DARK_BRIGHT_PATH', Dark_Bright_Path))
+Bright_Path = os.path.normpath(os.environ.get('PA_BRIGHT_PATH', Bright_Path))
+Registration_Path = os.path.normpath(os.environ.get('PA_REGISTRATION_PATH', Registration_Path))
+Experiment_Folder_Path = os.path.normpath(os.environ.get('PA_EXPERIMENT_PATH', Experiment_Folder_Path))
+
+if DEBUG:
+    print(f"{Dark_Path=!r}")
+    print(f"{Dark_Bright_Path=!r}")
+    print(f"{Bright_Path=!r}")
+    print(f"{Registration_Path=!r}")
+    print(f"{Experiment_Folder_Path=!r}")
 
 
 # In[ ]:
@@ -388,6 +412,8 @@ img_bright = np.median(images_bright, 2) - bright_dark
 threshold_value = 3850  # @param {type: "slider", min: 200, max: 10000}
 
 threshold_value = float(os.environ.get('PA_THRESHOLD_VALUE', threshold_value))
+if DEBUG:
+    print(f"{threshold_value=}")
 
 # Extracts ROIs based on threshold, saves ROIs as images and stored pixel coordinates (slice)
 CH1_ROI, CH2_ROI, CH3_ROI, CH1_slice, CH2_slice, CH3_slice = norm_slicing(threshold_value, img_bright, dark)
@@ -444,13 +470,16 @@ Right = 30  # @param {type: "slider", min: 0, max: 200}
 Top = 10  # @param {type: "slider", min: 0, max: 500}
 Bottom = 10  # @param {type: "slider", min: 0, max: 500}
 
-Left = int(os.environ.get('PA_LEFT', Left))
-Right = int(os.environ.get('PA_RIGHT', Right))
-Top = int(os.environ.get('PA_TOP', Top))
-Bottom = int(os.environ.get('PA_BOTTOM', Bottom))
+Left = int(os.environ.get('PA_CROP_LEFT', Left))
+Right = int(os.environ.get('PA_CROP_RIGHT', Right))
+Top = int(os.environ.get('PA_CROP_TOP', Top))
+Bottom = int(os.environ.get('PA_CROP_BOTTOM', Bottom))
 
 # Define manual cropping parameters
 Crop = [Top, Bottom, Left, Right]
+if DEBUG:
+    print(f"{Crop=}")
+
 # Return cropped ROIs
 Ch_slices = []
 for ch_slice in Ch_slice_new:
@@ -559,6 +588,13 @@ Processing = {
     "Cellpose_model": model,
 }
 
+if DEBUG:
+    print(f"{Time_binning=}")
+    print(f"{Median_filter=}")
+    print(f"{Median_filter_GS=}")
+    print(f"{Bkg_subtraction=}")
+    print(f"{Cellpose_diameter=}")
+
 # Create a list of slices
 CH_list = [np.mean(ch[:, :, :Time_binning], 2) for ch in [CH1, CH2, CH3]]
 # Compute image segmentation and generate masks
@@ -605,10 +641,13 @@ plt.tight_layout()
 # @title **Automatic - Save calibration and processing parameters...**
 
 # Save the calibration parameters
+print(f"Saving calibration to {os.path.join(Experiment_Folder_Path, 'Calibration.npy')!r}")
 np.save(Experiment_Folder_Path + "/Calibration.npy", calibration)
 with open(os.path.join(Experiment_Folder_Path, "Calibration"), "w") as f:
     f.write(str(calibration))
+
 # Save the processing parameters
+print(f"Saving parameters to {os.path.join(Experiment_Folder_Path, 'Processing.npy')!r}")
 np.save(Experiment_Folder_Path + "/Processing.npy", Processing)
 
 
