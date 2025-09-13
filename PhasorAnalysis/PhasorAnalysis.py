@@ -87,6 +87,7 @@ try:
     drive.mount("/content/drive", force_remount=True)
     print("Installing libraries...")
     get_ipython().run_line_magic('pip', 'install cellpose')
+    get_ipython().run_line_magic('pip', 'install phasorpy==0.7')
 except ImportError:
     pass
 
@@ -100,10 +101,14 @@ import matplotlib.colors as mcolors
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
+import phasorpy
 import scipy
 import skimage
 import tifffile
 from cellpose import models
+from phasorpy.color import CATEGORICAL
+from phasorpy.cursor import mask_from_circular_cursor, pseudo_color
+from phasorpy.plot import PhasorPlot
 from scipy.ndimage import gaussian_filter
 from skimage.filters import median
 from skimage.morphology import disk
@@ -117,6 +122,7 @@ if DEBUG:
     print(f"pandas {pd.__version__}")
     print(f"skimage {skimage.__version__}")
     print(f"matplotlib {matplotlib.__version__}")
+    print(f"phasorpy {phasorpy.__version__}")
     print(f"tifffile {tifffile.__version__}")
 
 
@@ -135,7 +141,8 @@ INTERPOLATION = os.environ.get('PA_INTERPOLATION', 'nearest')
 
 
 def get_labeled_ROIs(img_bright, thr, n_regions=3):
-    # this function gets the region of the two largest ROIs above a defined threshold, sorted by x-position (left to right)
+    # this function gets the region of the two largest ROIs above a defined
+    # threshold, sorted by x-position (left to right)
     labeled_image, num_labels = scipy.ndimage.label(img_bright > thr)
     regions = scipy.ndimage.find_objects(labeled_image)
     region_sizes = [np.sum(labeled_image[region]) for region in regions]
@@ -189,17 +196,17 @@ def plot_grid(ax, radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), c
 def preprocess(folder_path, radius=None, sigma=None):
     files = [f for f in os.listdir(folder_path) if os.path.splitext(f)[-1].lower() == '.tif']
     if not files:
-        print(f"Error: No 'tiff' files found in {folder_path!r}")
+        print(f"Error: No '.tif' files found in {folder_path!r}")
         return None  # Explicitly return None to signal an error
     img = [tifffile.imread(os.path.join(folder_path, f)).astype(np.float32) for f in files]
-    if radius is not None:
-        print(f"Removing hot pixels with median filter radius: {radius}")
+    if radius is not None and radius > 0:
+        print(f"Removing hot pixels with median filter {radius=} ...")
         disk_element = disk(radius)
         for i, im in enumerate(img):
             im = median(im, disk_element, mode="reflect")
             img[i] = im
-    if sigma is not None:
-        print(f"Applying gaussian smoothing sigma: {sigma}...")
+    if sigma is not None and sigma > 0:
+        print(f"Applying gaussian smoothing {sigma=} ...")
         for i, im in enumerate(img):
             im = gaussian_filter(im, sigma=sigma)
             img[i] = im
@@ -210,7 +217,6 @@ def preprocess(folder_path, radius=None, sigma=None):
 
 
 def norm_slicing(tld, img, dark, region=3, plots=False):
-
     print("Automatically selecting ROIs...")
 
     fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12, 4))
@@ -325,6 +331,8 @@ def autocorr(CH_list):
 
 
 # @title **User input - Define Sine and Cosine filters parameters...**
+
+
 SinCos_Fsin = np.asarray([11.2, 92.8]) / 100
 SinCos_Fcos = np.asarray([10.9, 94.3]) / 100
 SinCos_Lambda = np.asarray([400, 700])
@@ -384,8 +392,12 @@ if DEBUG:
 
 
 # @title **Automatic - Define Calibration paths and load files**
-radius = 2
-sigma = 3
+
+radius = 2.0
+sigma = 3.0
+
+radius = float(os.environ.get('PA_RADIUS', radius))
+sigma = float(os.environ.get('PA_SIGMA', sigma))
 
 print("Loading Dark Files... ")
 # Load dark path (for experiments) and calcute offset
@@ -546,6 +558,7 @@ calibration = {
 
 
 # @title **Automatic - Define GPU-accelerated default Cellpose model**
+
 print("Defining Cellpose model...")
 model = models.CellposeModel(gpu=True)
 
@@ -645,7 +658,7 @@ plt.tight_layout()
 # Save the calibration parameters
 fname = os.path.join(Experiment_Folder_Path, 'Calibration.npy')
 print(f"Saving calibration to {fname!r}")
-np.save(fname, calibration)
+np.save(fname, calibration)  # type: ignore[call-overload]
 
 with open(os.path.join(Experiment_Folder_Path, 'Calibration.txt'), "w") as f:
     f.write(str(calibration))
@@ -653,7 +666,7 @@ with open(os.path.join(Experiment_Folder_Path, 'Calibration.txt'), "w") as f:
 # Save the processing parameters
 fname = os.path.join(Experiment_Folder_Path, 'Processing.npy')
 print(f"Saving parameters to {fname!r}")
-np.save(fname, Processing)
+np.save(fname, Processing)  # type: ignore[call-overload]
 
 
 # In[ ]:
@@ -803,14 +816,55 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         axs[0].set_title("Phasor - Single cells")
         plt.suptitle(fname + " - Phasors")
         plt.tight_layout()
-        print("Saving...")
+        plt.show()
         plt.savefig(exp_path + "_Phasors.png")
+
+        # Mask regions of interest in the phasor space using circular cursors:
+        cursor_real = 0.23, -0.16  # G coordinate of cursors
+        cursor_imag = 0.26, 0.20  # S coordinate of cursors
+        cursor_radius = 0.2, 0.2
+
+        mean = CH1
+        mean /= np.percentile(mean, 99)
+        mean = np.clip(mean, 0, 1.0)
+        mean = skimage.exposure.adjust_log(mean, 1)
+
+        real = img_g
+        imag = img_s
+
+        real[masks == 0] = np.nan
+        imag[masks == 0] = np.nan
+
+        cursors_masks = mask_from_circular_cursor(real, imag, cursor_real, cursor_imag, radius=cursor_radius)
+
+        fig, axs = plt.subplots(1, 2, figsize=(10, 4.8), dpi=DPI)
+        fig.suptitle(f'{fname} - Cursors')
+
+        phasorplot = PhasorPlot(ax=axs[0], allquadrants=True, title='')
+        phasorplot.hist2d(real, imag, cmap='Greys')
+        for i in range(len(cursor_real)):
+            phasorplot.circle(
+                cursor_real[i],
+                cursor_imag[i],
+                radius=cursor_radius[i],
+                color=CATEGORICAL[i],
+                linestyle='-',
+            )
+
+        pseudo_color_image = pseudo_color(*cursors_masks, intensity=mean)
+
+        axs[1].imshow(pseudo_color_image)
+        axs[1].set_axis_off()
         plt.tight_layout()
         plt.show()
+        fig.savefig(exp_path + '_Cursors.png')
 
+        # Save results
         df.to_excel(exp_path + ".xlsx")
         df_all = pd.concat((df_all if not df_all.empty else None, df))
+
         if FLAG_SAVE_IMAGES == "True":
+            print("Saving...")
             Experiment_Images = {
                 "CH_list": CH_list,
                 "masks": masks,
@@ -822,7 +876,8 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 "Calibration": Calibration,
                 "Processing": Processing,
             }
-            np.savez_compressed(exp_path + "_Images.npz", Experiment_Images)
+            np.savez_compressed(exp_path + "_Images.npz", Experiment_Images)  # type: ignore[arg-type]
+
     except Exception as exc:
         print(f"SKIPPED: Experiment #{i_exp + 1}/{len(Experiments_Path)}")
         if DEBUG:
