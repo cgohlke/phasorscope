@@ -660,7 +660,7 @@ np.save(fname, Processing)
 
 
 # @title **Automatic - Process all experiment files**
-figsize = (12, 5)
+figsize = (12.8, 4.8)
 
 # Load experiments from folder
 Experiments_Path = []
@@ -724,7 +724,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=figsize)
         img1 = axs[0].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
         cbar = plt.colorbar(img1)
-        cbar.ax.set_title("Cell index")
+        axs[0].set_title("Cell index")
         axs[0].set_axis_off()
         for i_cells in range(0, np.max(masks)):
             cell_idx = i_cells + 1
@@ -745,17 +745,17 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
             )
         img2 = axs[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99), interpolation=INTERPOLATION)
         cbar = plt.colorbar(img2)
-        cbar.ax.set_title("Intensity")
+        axs[1].set_title("Intensity")
         axs[1].set_axis_off()
         img3 = axs[2].imshow(
             img_ph * (masks > 0), cmap=cmap_custom, vmin=0, vmax=math.pi * 2, interpolation=INTERPOLATION
         )
         cbar = plt.colorbar(img3)
-        cbar.ax.set_title("Phase (rad)")
+        axs[2].set_title("Phase (rad)")
         axs[2].set_axis_off()
         img4 = axs[3].imshow(img_mod * (masks > 0), cmap='nipy_spectral', vmin=0, vmax=1, interpolation=INTERPOLATION)
         cbar = plt.colorbar(img4)
-        cbar.ax.set_title("Modulation")
+        axs[3].set_title("Modulation")
         axs[3].set_axis_off()
         plt.suptitle(fname + " - Images")
         plt.tight_layout()
