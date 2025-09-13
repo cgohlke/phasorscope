@@ -94,16 +94,13 @@ print("Import libraries...")
 import math
 import os
 import traceback
-from pathlib import Path
 
-import cellpose
 import matplotlib
 import matplotlib.colors as mcolors
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import scipy
-import scipy.ndimage
 import skimage
 import tifffile
 from cellpose import models
@@ -115,9 +112,7 @@ from skimage.morphology import disk
 DEBUG = os.environ.get('PA_DEBUG', "1") in {"1", "TRUE", "True"}
 
 if DEBUG:
-    print()
     print(f"numpy {np.__version__}")
-    print(f"cellpose {np.__version__}")
     print(f"scipy {scipy.__version__}")
     print(f"pandas {pd.__version__}")
     print(f"skimage {skimage.__version__}")
@@ -218,17 +213,17 @@ def norm_slicing(tld, img, dark, region=3, plots=False):
 
     print("Automatically selecting ROIs...")
 
-    fig, axes = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12, 4))
-    axes[0].imshow(img, cmap="gray", interpolation=INTERPOLATION)
-    axes[0].set_title("Original")
+    fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12, 4))
+    axs[0].imshow(img, cmap="gray", interpolation=INTERPOLATION)
+    axs[0].set_title("Original")
     binary_mask = img > tld
-    axes[1].imshow(binary_mask, cmap="gray", interpolation=INTERPOLATION)
-    axes[1].set_title("Manual Threshold")
-    axes[1].set_axis_off()
+    axs[1].imshow(binary_mask, cmap="gray", interpolation=INTERPOLATION)
+    axs[1].set_title("Manual threshold")
+    axs[1].set_axis_off()
     labeled_rois_img, rois_info = get_labeled_ROIs(img, tld, region)
-    axes[2].imshow(labeled_rois_img, cmap="viridis", interpolation=INTERPOLATION)
-    axes[2].set_title("Detected ROIs")
-    axes[2].set_axis_off()
+    axs[2].imshow(labeled_rois_img, cmap="viridis", interpolation=INTERPOLATION)
+    axs[2].set_title("Detected ROIs")
+    axs[2].set_axis_off()
     plt.tight_layout()
     plt.show()
 
@@ -249,14 +244,14 @@ def norm_slicing(tld, img, dark, region=3, plots=False):
     CH3_ROI = img[CH3_slice] - dark
 
     if plots:
-        fig, axes = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(6, 4))
-        axes[0].imshow(CH1_ROI, interpolation=INTERPOLATION)
-        axes[0].set_title("CH1")
-        axes[1].imshow(CH2_ROI, interpolation=INTERPOLATION)
-        axes[1].set_title("CH2")
-        axes[2].imshow(CH3_ROI, interpolation=INTERPOLATION)
-        axes[2].set_title("CH3")
-        for ax in axes:
+        fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(6, 4))
+        axs[0].imshow(CH1_ROI, interpolation=INTERPOLATION)
+        axs[0].set_title("CH1")
+        axs[1].imshow(CH2_ROI, interpolation=INTERPOLATION)
+        axs[1].set_title("CH2")
+        axs[2].imshow(CH3_ROI, interpolation=INTERPOLATION)
+        axs[2].set_title("CH3")
+        for ax in axs:
             ax.set_axis_off()
         plt.tight_layout()
         plt.show()
@@ -269,12 +264,12 @@ def ratio_sc(ch1, ch2, ch3, plots=False):
     R_cos_int = ch2 / ch1
     R_sin_int = ch3 / ch1
     if plots:
-        fig, ax = plt.subplots(ncols=2, dpi=DPI)
-        ax = np.ravel(ax)
-        ax[0].imshow(R_cos_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
-        ax[0].set_axis_off()
-        ax[1].imshow(R_sin_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
-        ax[1].set_axis_off()
+        fig, axs = plt.subplots(ncols=2, dpi=DPI)
+        axs = np.ravel(axs)
+        axs[0].imshow(R_cos_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
+        axs[0].set_axis_off()
+        axs[1].imshow(R_sin_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
+        axs[1].set_axis_off()
         plt.show()
     return R_cos_int, R_sin_int
 
@@ -418,7 +413,7 @@ img_bright = np.median(images_bright, 2) - bright_dark
 # Threshold value to allow algorithm to automatically find the three channels (ROI: Region Of Interest)
 threshold_value = 3850  # @param {type: "slider", min: 200, max: 10000}
 
-threshold_value = float(os.environ.get('PA_THRESHOLD_VALUE', threshold_value))
+threshold_value = int(os.environ.get('PA_THRESHOLD_VALUE', threshold_value))
 if DEBUG:
     print(f"{threshold_value=}")
 
@@ -581,7 +576,7 @@ Median_filter_GS = 1  # @param {type: "slider", min: 0, max: 21, step: 1}
 
 Time_binning = int(os.environ.get('PA_TIME_BINNING', Time_binning))
 Median_filter = int(os.environ.get('PA_MEDIAN_FILTER', Median_filter))
-Bkg_subtraction = float(os.environ.get('PA_BKG_SUBTRACTION', Bkg_subtraction))
+Bkg_subtraction = int(os.environ.get('PA_BKG_SUBTRACTION', Bkg_subtraction))
 Cellpose_diameter = int(os.environ.get('PA_CELLPOSE_DIAMETER', Cellpose_diameter))
 Median_filter_GS = int(os.environ.get('PA_MEDIAN_FILTER_GS', Median_filter_GS))
 
@@ -609,36 +604,36 @@ tmp_img, masks = Process_Img(CH_list[0], Processing)
 # Calculate the phasor using the calibration and processing parameters defined above
 img_g, img_s, img_ph, img_mod = Calculate_Phasors(CH_list, calibration, Processing)
 
-fig, ax = plt.subplots(ncols=4, dpi=DPI, figsize=(12, 4))
-ax[1].imshow(tmp_img, vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
-ax[1].set_title("Processed image")
-ax[1].set_axis_off()
-ax[1].set_aspect(1)
-ax[2].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
-ax[2].set_title("Segmentation")
-ax[2].set_axis_off()
-ax[2].set_aspect(1)
-# ax[0].imshow(CH_list[0], vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
-# ax[0].set_title("Original Image")
-# ax[0].set_axis_off()
-# ax[0].set_aspect(1)
-ax[0].imshow(CH_list[0], vmax=np.percentile(CH_list[0], 99.9), cmap="hot", interpolation=INTERPOLATION)
-ax[0].set_title("Original Image")
-ax[0].set_axis_off()
-ax[0].set_aspect(1)
+fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=(12, 4))
+axs[1].imshow(tmp_img, vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
+axs[1].set_title("Processed image")
+axs[1].set_axis_off()
+axs[1].set_aspect(1)
+axs[2].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
+axs[2].set_title("Segmentation")
+axs[2].set_axis_off()
+axs[2].set_aspect(1)
+# axs[0].imshow(CH_list[0], vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
+# axs[0].set_title("Original image")
+# axs[0].set_axis_off()
+# axs[0].set_aspect(1)
+axs[0].imshow(CH_list[0], vmax=np.percentile(CH_list[0], 99.9), cmap="hot", interpolation=INTERPOLATION)
+axs[0].set_title("Original image")
+axs[0].set_axis_off()
+axs[0].set_aspect(1)
 
 gs_lim = 1
-ax[3].hist2d(
+axs[3].hist2d(
     img_g[masks > 0],
     img_s[masks > 0],
     bins=128,
     range=np.asarray([[-gs_lim, gs_lim], [-gs_lim, gs_lim]]),
     cmap="nipy_spectral",
 )
-ax[3].set_axis_off()
-ax[3].set_title("Phasor - pixels")
-ax[3].set_aspect(1)
-plot_grid(ax[3], radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), color="white")
+axs[3].set_axis_off()
+axs[3].set_title("Phasor - Pixels")
+axs[3].set_aspect(1)
+plot_grid(axs[3], radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), color="white")
 plt.tight_layout()
 
 
@@ -652,7 +647,7 @@ fname = os.path.join(Experiment_Folder_Path, 'Calibration.npy')
 print(f"Saving calibration to {fname!r}")
 np.save(fname, calibration)
 
-with open(os.path.join(Experiment_Folder_Path, 'Calibration'), "w") as f:
+with open(os.path.join(Experiment_Folder_Path, 'Calibration.txt'), "w") as f:
     f.write(str(calibration))
 
 # Save the processing parameters
@@ -684,10 +679,9 @@ dy_text = 0
 
 # Custom colormap for phase images
 hsv = plt.colormaps.get_cmap('hsv')
-colors = [(0, 0, 0)]  # RGB for black
 n_steps = 256  # Number of color steps in the final colormap
-for i in range(1, n_steps):
-    colors.append(hsv(i / (n_steps - 1)))
+colors = [hsv(i / (n_steps - 1))[:3] for i in range(n_steps)]
+colors[0] = (0.0, 0.0, 0.0)  # black
 cmap_custom = mcolors.LinearSegmentedColormap.from_list("hsv_black_start", colors)
 
 # Load processing and calibration parameters
@@ -727,11 +721,11 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         df = pd.DataFrame(columns=Columns, index=[])
 
         # Images - Phasors as median of g,s
-        fig, ax = plt.subplots(ncols=4, dpi=DPI, figsize=figsize)
-        img1 = ax[0].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
+        fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=figsize)
+        img1 = axs[0].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
         cbar = plt.colorbar(img1)
-        cbar.ax.set_title("Cell idx")
-        ax[0].set_axis_off()
+        cbar.ax.set_title("Cell index")
+        axs[0].set_axis_off()
         for i_cells in range(0, np.max(masks)):
             cell_idx = i_cells + 1
             logic = masks == (cell_idx)
@@ -740,8 +734,8 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
             s_cell = np.median(img_s[logic])
             x_cell = np.mean(idx[0])
             y_cell = np.mean(idx[1])
-            ax[0].arrow(y_cell + dy_text, x_cell - dy_text, -dy_text, dy_text, color="gray", linewidth=0.3)
-            ax[0].text(
+            axs[0].arrow(y_cell + dy_text, x_cell - dy_text, -dy_text, dy_text, color="gray", linewidth=0.3)
+            axs[0].text(
                 y_cell + dy_text,
                 x_cell - dy_text,
                 str(cell_idx),
@@ -749,38 +743,38 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 horizontalalignment="center",
                 verticalalignment="center",
             )
-        img2 = ax[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99), interpolation=INTERPOLATION)
+        img2 = axs[1].imshow(CH1, cmap="hot", vmin=0, vmax=np.percentile(CH1, 99), interpolation=INTERPOLATION)
         cbar = plt.colorbar(img2)
         cbar.ax.set_title("Intensity")
-        ax[1].set_axis_off()
-        img3 = ax[2].imshow(
+        axs[1].set_axis_off()
+        img3 = axs[2].imshow(
             img_ph * (masks > 0), cmap=cmap_custom, vmin=0, vmax=math.pi * 2, interpolation=INTERPOLATION
         )
         cbar = plt.colorbar(img3)
         cbar.ax.set_title("Phase (rad)")
-        ax[2].set_axis_off()
-        img4 = ax[3].imshow(img_mod * (masks > 0), cmap='nipy_spectral', vmin=0, vmax=1, interpolation=INTERPOLATION)
+        axs[2].set_axis_off()
+        img4 = axs[3].imshow(img_mod * (masks > 0), cmap='nipy_spectral', vmin=0, vmax=1, interpolation=INTERPOLATION)
         cbar = plt.colorbar(img4)
         cbar.ax.set_title("Modulation")
-        ax[3].set_axis_off()
+        axs[3].set_axis_off()
         plt.suptitle(fname + " - Images")
         plt.tight_layout()
         plt.show()
 
-        fig, ax = plt.subplots(ncols=2, dpi=DPI, figsize=figsize)
+        fig, axs = plt.subplots(ncols=2, dpi=DPI, figsize=figsize)
         gs_lim = 1
-        ax[1].hist2d(
+        axs[1].hist2d(
             img_g[masks > 0],
             img_s[masks > 0],
             bins=128,
             range=np.asarray([[-gs_lim, gs_lim], [-gs_lim, gs_lim]]),
             cmap="nipy_spectral",
         )
-        ax[1].set_axis_off()
-        ax[1].set_title("Phasor - pixels")
-        ax[1].set_aspect(1)
-        plot_grid(ax[1], radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), color="white")
-        plot_grid(ax[0], radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), color="black")
+        axs[1].set_axis_off()
+        axs[1].set_title("Phasor - Pixels")
+        axs[1].set_aspect(1)
+        plot_grid(axs[1], radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), color="white")
+        plot_grid(axs[0], radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), color="black")
         for i_cells in range(0, np.max(masks)):
             cell_idx = i_cells + 1
             logic = masks == (cell_idx)
@@ -797,16 +791,16 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 index=[cell_idx],
             )
             df = pd.concat((df if not df.empty else None, df_tmp))
-            ax[0].plot(g_cell, s_cell, "o", markerfacecolor=CMap[cell_idx], markeredgecolor="k", markersize=16)
-            ax[0].text(
+            axs[0].plot(g_cell, s_cell, "o", markerfacecolor=CMap[cell_idx], markeredgecolor="k", markersize=16)
+            axs[0].text(
                 g_cell, s_cell, str(cell_idx), color="black", horizontalalignment="center", verticalalignment="center"
             )
-        ax[0].set_xlim([-1, 1])
-        ax[0].set_ylim([-1, 1])
-        ax[0].set_aspect(1)
-        ax[0].set_xlabel("g")
-        ax[0].set_ylabel("s")
-        ax[0].set_title("Phasor - Single cells")
+        axs[0].set_xlim([-1, 1])
+        axs[0].set_ylim([-1, 1])
+        axs[0].set_aspect(1)
+        axs[0].set_xlabel("g")
+        axs[0].set_ylabel("s")
+        axs[0].set_title("Phasor - Single cells")
         plt.suptitle(fname + " - Phasors")
         plt.tight_layout()
         print("Saving...")
