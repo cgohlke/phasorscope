@@ -783,7 +783,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
                 {"g": g_cell, "s": s_cell, "x": x_cell, "y": y_cell, "color": [CMap[cell_idx]], "fname": fname},
                 index=[cell_idx],
             )
-            df = pd.concat((df, df_tmp))
+            df = pd.concat((df if not df.empty else None, df_tmp))
             ax[0].plot(g_cell, s_cell, "o", markerfacecolor=CMap[cell_idx], markeredgecolor="k", markersize=16)
             ax[0].text(
                 g_cell, s_cell, str(cell_idx), color="black", horizontalalignment="center", verticalalignment="center"
@@ -802,7 +802,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         plt.show()
 
         df.to_excel(exp_path + ".xlsx")
-        df_all = pd.concat((df_all, df))
+        df_all = pd.concat((df_all if not df_all.empty else None, df))
         if FLAG_SAVE_IMAGES == "True":
             Experiment_Images = {
                 "CH_list": CH_list,
