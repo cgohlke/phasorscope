@@ -91,8 +91,8 @@ try:
 
     drive.mount("/content/drive", force_remount=True)
     print("Installing libraries...")
-    get_ipython().run_line_magic('pip', 'install cellpose')
-    get_ipython().run_line_magic('pip', 'install phasorpy==0.7')
+    get_ipython().run_line_magic("pip", "install cellpose")
+    get_ipython().run_line_magic("pip", "install phasorpy==0.7")
 except ImportError:
     pass
 
@@ -119,7 +119,7 @@ from skimage.filters import median
 from skimage.morphology import disk
 
 # output additional information throughout the notebook
-DEBUG = os.environ.get('PA_DEBUG', "1") in {"1", "TRUE", "True"}
+DEBUG = os.environ.get("PA_DEBUG", "1") in {"1", "TRUE", "True"}
 
 if DEBUG:
     print(f"numpy {np.__version__}")
@@ -139,10 +139,10 @@ if DEBUG:
 print("Defining functions...")
 
 # Resolution of figures
-DPI = float(os.environ.get('PA_DPI', 300))
+DPI = float(os.environ.get("PA_DPI", 300))
 
 # image interpolation
-INTERPOLATION = os.environ.get('PA_INTERPOLATION', 'nearest')
+INTERPOLATION = os.environ.get("PA_INTERPOLATION", "nearest")
 
 
 def get_labeled_ROIs(img_bright, thr, n_regions=3):
@@ -199,7 +199,7 @@ def plot_grid(ax, radii=[0, 0.25, 0.5, 0.75, 1], angles=np.arange(0, 360, 45), c
 
 
 def preprocess(folder_path, radius=None, sigma=None):
-    files = [f for f in os.listdir(folder_path) if os.path.splitext(f)[-1].lower() == '.tif']
+    files = [f for f in os.listdir(folder_path) if os.path.splitext(f)[-1].lower() == ".tif"]
     if not files:
         print(f"Error: No '.tif' files found in {folder_path!r}")
         return None  # Explicitly return None to signal an error
@@ -290,8 +290,8 @@ def Calculate_Phasors(CH_list, calibration, Processing):
     SinCos_Fsin = np.asarray(calibration["SinCos_Fsin"])
     img_g = 2 * (CH_list[1] / CH_list[0] - SinCos_Fcos[0]) / (SinCos_Fcos[1] - SinCos_Fcos[0]) - 1
     img_s = 2 * (CH_list[2] / CH_list[0] - SinCos_Fsin[0]) / (SinCos_Fsin[1] - SinCos_Fsin[0]) - 1
-    img_g = median(img_g, disk(Processing['Median_filter_GS']))
-    img_s = median(img_s, disk(Processing['Median_filter_GS']))
+    img_g = median(img_g, disk(Processing["Median_filter_GS"]))
+    img_s = median(img_s, disk(Processing["Median_filter_GS"]))
     img_ph = np.arctan2(img_s, img_g) % (2 * math.pi)
     img_mod = np.hypot(img_g, img_s)
     return img_g, img_s, img_ph, img_mod
@@ -379,13 +379,13 @@ Experiment_Folder_Path = os.path.join(data_path, "Experiments")
 # Whether to save analyzed images as PNG (slower)
 FLAG_SAVE_IMAGES = "True"  # @param ["True", "False"]
 
-Dark_Path = os.path.normpath(os.environ.get('PA_DARK_PATH', Dark_Path))
-Dark_Bright_Path = os.path.normpath(os.environ.get('PA_DARK_BRIGHT_PATH', Dark_Bright_Path))
-Bright_Path = os.path.normpath(os.environ.get('PA_BRIGHT_PATH', Bright_Path))
-Registration_Path = os.path.normpath(os.environ.get('PA_REGISTRATION_PATH', Registration_Path))
-Experiment_Folder_Path = os.path.normpath(os.environ.get('PA_EXPERIMENT_PATH', Experiment_Folder_Path))
+Dark_Path = os.path.normpath(os.environ.get("PA_DARK_PATH", Dark_Path))
+Dark_Bright_Path = os.path.normpath(os.environ.get("PA_DARK_BRIGHT_PATH", Dark_Bright_Path))
+Bright_Path = os.path.normpath(os.environ.get("PA_BRIGHT_PATH", Bright_Path))
+Registration_Path = os.path.normpath(os.environ.get("PA_REGISTRATION_PATH", Registration_Path))
+Experiment_Folder_Path = os.path.normpath(os.environ.get("PA_EXPERIMENT_PATH", Experiment_Folder_Path))
 
-SAVE_IMAGES = os.environ.get('PA_SAVE_IMAGES', FLAG_SAVE_IMAGES) in {"1", "TRUE", "True"}
+SAVE_IMAGES = os.environ.get("PA_SAVE_IMAGES", FLAG_SAVE_IMAGES) in {"1", "TRUE", "True"}
 
 if DEBUG:
     print(f"{Dark_Path=!r}")
@@ -403,8 +403,8 @@ if DEBUG:
 radius = 2.0
 sigma = 3.0
 
-radius = float(os.environ.get('PA_RADIUS', radius))
-sigma = float(os.environ.get('PA_SIGMA', sigma))
+radius = float(os.environ.get("PA_RADIUS", radius))
+sigma = float(os.environ.get("PA_SIGMA", sigma))
 
 print("Loading Dark files... ")
 # Load dark path (for experiments) and calcute offset
@@ -432,7 +432,7 @@ img_bright = np.median(images_bright, 2) - bright_dark
 # Threshold value to allow algorithm to automatically find the three channels (ROI: Region Of Interest)
 threshold_value = 3850  # @param {type: "slider", min: 200, max: 10000}
 
-threshold_value = int(os.environ.get('PA_THRESHOLD_VALUE', threshold_value))
+threshold_value = int(os.environ.get("PA_THRESHOLD_VALUE", threshold_value))
 if DEBUG:
     print(f"{threshold_value=}")
 
@@ -492,10 +492,10 @@ Right = 30  # @param {type: "slider", min: 0, max: 200}
 Top = 10  # @param {type: "slider", min: 0, max: 500}
 Bottom = 10  # @param {type: "slider", min: 0, max: 500}
 
-Left = int(os.environ.get('PA_CROP_LEFT', Left))
-Right = int(os.environ.get('PA_CROP_RIGHT', Right))
-Top = int(os.environ.get('PA_CROP_TOP', Top))
-Bottom = int(os.environ.get('PA_CROP_BOTTOM', Bottom))
+Left = int(os.environ.get("PA_CROP_LEFT", Left))
+Right = int(os.environ.get("PA_CROP_RIGHT", Right))
+Top = int(os.environ.get("PA_CROP_TOP", Top))
+Bottom = int(os.environ.get("PA_CROP_BOTTOM", Bottom))
 
 # Define manual cropping parameters
 Crop = [Top, Bottom, Left, Right]
@@ -595,11 +595,11 @@ Cellpose_diameter = 356  # @param {type: "slider", min: 5, max: 600}
 # Radius of median filter to (g,s) coordinates
 Median_filter_GS = 1  # @param {type: "slider", min: 0, max: 21, step: 1}
 
-Time_binning = int(os.environ.get('PA_TIME_BINNING', Time_binning))
-Median_filter = int(os.environ.get('PA_MEDIAN_FILTER', Median_filter))
-Bkg_subtraction = int(os.environ.get('PA_BKG_SUBTRACTION', Bkg_subtraction))
-Cellpose_diameter = int(os.environ.get('PA_CELLPOSE_DIAMETER', Cellpose_diameter))
-Median_filter_GS = int(os.environ.get('PA_MEDIAN_FILTER_GS', Median_filter_GS))
+Time_binning = int(os.environ.get("PA_TIME_BINNING", Time_binning))
+Median_filter = int(os.environ.get("PA_MEDIAN_FILTER", Median_filter))
+Bkg_subtraction = int(os.environ.get("PA_BKG_SUBTRACTION", Bkg_subtraction))
+Cellpose_diameter = int(os.environ.get("PA_CELLPOSE_DIAMETER", Cellpose_diameter))
+Median_filter_GS = int(os.environ.get("PA_MEDIAN_FILTER_GS", Median_filter_GS))
 
 if Cellpose_diameter <= 0:
     Cellpose_diameter = None  # let Cellpose choose the diameter
@@ -667,15 +667,15 @@ plt.tight_layout()
 # @title **Automatic - Save calibration and processing parameters...**
 
 # Save the calibration parameters
-fname = os.path.join(Experiment_Folder_Path, 'Calibration.npy')
+fname = os.path.join(Experiment_Folder_Path, "Calibration.npy")
 print(f"Saving calibration to {fname!r}")
 np.save(fname, calibration)  # type: ignore[call-overload]
 
-with open(os.path.join(Experiment_Folder_Path, 'Calibration.txt'), "w") as f:
+with open(os.path.join(Experiment_Folder_Path, "Calibration.txt"), "w") as f:
     f.write(str(calibration))
 
 # Save the processing parameters
-fname = os.path.join(Experiment_Folder_Path, 'Processing.npy')
+fname = os.path.join(Experiment_Folder_Path, "Processing.npy")
 print(f"Saving parameters to {fname!r}")
 np.save(fname, Processing)  # type: ignore[call-overload]
 
@@ -702,7 +702,7 @@ df_all = pd.DataFrame(columns=Columns, index=[])
 dy_text = 0
 
 # Custom colormap for phase images
-hsv = plt.colormaps.get_cmap('hsv')
+hsv = plt.colormaps.get_cmap("hsv")
 n_steps = 256  # Number of color steps in the final colormap
 colors = [hsv(i / (n_steps - 1))[:3] for i in range(n_steps)]
 colors[0] = (0.0, 0.0, 0.0)  # black
@@ -777,13 +777,13 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         cbar = plt.colorbar(img3)
         axs[2].set_title("Phase (rad)")
         axs[2].set_axis_off()
-        img4 = axs[3].imshow(img_mod * (masks > 0), cmap='nipy_spectral', vmin=0, vmax=1, interpolation=INTERPOLATION)
+        img4 = axs[3].imshow(img_mod * (masks > 0), cmap="nipy_spectral", vmin=0, vmax=1, interpolation=INTERPOLATION)
         cbar = plt.colorbar(img4)
         axs[3].set_title("Modulation")
         axs[3].set_axis_off()
         plt.suptitle(fname + " - Images")
         plt.tight_layout()
-        fig.savefig(exp_path + '_Images.png')
+        fig.savefig(exp_path + "_Images.png")
         plt.show()
 
         fig, axs = plt.subplots(ncols=2, dpi=DPI, figsize=figsize)
@@ -871,29 +871,29 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         cursors_masks = mask_from_circular_cursor(real, imag, cursor_real, cursor_imag, radius=cursor_radius)
 
         fig, axs = plt.subplots(1, 2, figsize=(10, 4.8), dpi=DPI)
-        fig.suptitle(f'{fname} - Cursors')
+        fig.suptitle(f"{fname} - Cursors")
 
-        phasorplot = PhasorPlot(ax=axs[0], allquadrants=True, title='Phasor plot')
-        phasorplot.hist2d(real, imag, cmap='Greys')
+        phasorplot = PhasorPlot(ax=axs[0], allquadrants=True, title="Phasor plot")
+        phasorplot.hist2d(real, imag, cmap="Greys")
         for i in range(len(cursor_real)):
             phasorplot.circle(
                 cursor_real[i],
                 cursor_imag[i],
                 radius=cursor_radius[i],
                 color=CATEGORICAL[i],
-                linestyle='-',
+                linestyle="-",
                 linewidth=2,
             )
-        axs[0].set_xlabel('G')
-        axs[0].set_ylabel('S')
+        axs[0].set_xlabel("G")
+        axs[0].set_ylabel("S")
 
         pseudo_color_image = pseudo_color(*cursors_masks)  #  intensity=mean
 
         axs[1].imshow(pseudo_color_image)
         axs[1].set_axis_off()
-        axs[1].set_title('Cursor masks')
+        axs[1].set_title("Cursor masks")
         plt.tight_layout()
-        fig.savefig(exp_path + '_Cursors.png')
+        fig.savefig(exp_path + "_Cursors.png")
         plt.show()
 
         # Save results
@@ -925,7 +925,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
 df_all.to_excel(os.path.join(os.path.dirname(exp_path), "All experiments.xlsx"))
 
 if DEBUG:
-    print(f'Runtime {time.perf_counter() - time_started:.0f} s')
+    print(f"Runtime {time.perf_counter() - time_started:.0f} s")
 
 
 # In[ ]:
