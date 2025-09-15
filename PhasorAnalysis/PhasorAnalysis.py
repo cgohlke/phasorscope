@@ -2,7 +2,7 @@
 # coding: utf-8
 
 #
-# # PhasorAnalysis
+# # PhasorAnalysis.ipynb
 #
 # Based on version 2.1 (2025.05.14).
 #
@@ -15,8 +15,8 @@
 # ```
 # MIT License
 #
-# Additional Copyright (c) 2025 Christoph Gohlke
-# Original Copyright (c) 2023-2025 Lorenzo Scipioni
+# Copyright (c) 2025 Christoph Gohlke
+# Copyright (c) 2023-2025 Lorenzo Scipioni
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,6 @@
 # This is a code for processing sine-cosine spectral data developed for bioluminescence phasors on the Phasor Scope.
 #
 # ---
-#
 #
 # By *Lorenzo Scipioni*
 #
@@ -81,10 +80,6 @@
 
 # @title **Automatic - Install and import libraries**
 
-import time
-
-time_started = time.perf_counter()
-
 try:
     print("Mounting Google Drive...")
     from google.colab import drive
@@ -99,6 +94,7 @@ except ImportError:
 print("Import libraries...")
 import math
 import os
+import time
 import traceback
 
 import matplotlib
@@ -117,6 +113,8 @@ from phasorpy.plot import PhasorPlot
 from scipy.ndimage import gaussian_filter
 from skimage.filters import median
 from skimage.morphology import disk
+
+time_started = time.perf_counter()
 
 # output additional information throughout the notebook
 DEBUG = os.environ.get("PA_DEBUG", "1") in {"1", "TRUE", "True"}
@@ -141,8 +139,16 @@ print("Defining functions...")
 # Resolution of figures
 DPI = float(os.environ.get("PA_DPI", 300))
 
-# image interpolation
+# Image interpolation
 INTERPOLATION = os.environ.get("PA_INTERPOLATION", "nearest")
+
+# Figure aspect ratio
+ASPECT = 1.0
+
+# colormap for debug images
+CMAP = plt.cm.viridis
+CMAP.set_under("red")  # Color for values below vmin
+CMAP.set_over("blue")  # Color for values above vmax
 
 
 def get_labeled_ROIs(img_bright, thr, n_regions=3):
@@ -161,9 +167,65 @@ def get_labeled_ROIs(img_bright, thr, n_regions=3):
     return new_labeled_image, largest_regions
 
 
-def Apply_Calibration(img, Calibration):
-    CH = [img[Slice] - Calibration["Value Calibration_Dark"] for Slice in Calibration["Slices"]]
-    if len(img.shape) == 3:
+def Apply_Calibration(img, Calibration, plot=DEBUG, title="DEBUG"):
+    dark = Calibration["Value Calibration_Dark"]
+
+    if plot:
+        # Plot mean of images used for calibration
+        fig, axs = plt.subplots(2, 3, figsize=(10.24 * ASPECT, 7.68), dpi=DPI)
+        fig.suptitle(f"{title} - Calibration ({dark=:.1f})")
+
+        ch0 = img[Calibration["Slices"][0]]
+        if ch0.ndim == 3:
+            ch0 = ch0.mean(axis=2)
+        ch1 = img[Calibration["Slices"][1]]
+        if ch1.ndim == 3:
+            ch1 = ch1.mean(axis=2)
+        ch2 = img[Calibration["Slices"][2]]
+        if ch2.ndim == 3:
+            ch2 = ch2.mean(axis=2)
+        vmax = None  # max(ch0.max(), ch1.max(), ch2.max()) - 1e-3
+
+        ax = axs[0, 0]
+        ax.set_title("CH 0")
+        # ax.set_axis_off()
+        im = ax.imshow(ch0, vmin=dark, vmax=vmax, cmap=CMAP, interpolation=INTERPOLATION)
+        if vmax is None:
+            plt.colorbar(im)
+
+        ax = axs[0, 1]
+        ax.set_title("CH 1")
+        ax.set_axis_off()
+        im = ax.imshow(ch1, vmin=dark, vmax=vmax, cmap=CMAP, interpolation=INTERPOLATION)
+        if vmax is None:
+            plt.colorbar(im)
+
+        ax = axs[0, 2]
+        ax.set_title("CH 2")
+        ax.set_axis_off()
+        im = ax.imshow(ch2, vmin=dark, vmax=vmax, cmap=CMAP, interpolation=INTERPOLATION)
+        plt.colorbar(im)
+
+        ax = axs[1, 0]
+        ax.set_axis_off()
+
+        ax = axs[1, 1]
+        ax.set_title("Bright 1")
+        ax.set_axis_off()
+        im = ax.imshow(Calibration["Bright"][0], interpolation=INTERPOLATION)
+        plt.colorbar(im)
+
+        ax = axs[1, 2]
+        ax.set_title("Bright 2")
+        ax.set_axis_off()
+        im = ax.imshow(Calibration["Bright"][1], interpolation=INTERPOLATION)
+        plt.colorbar(im)
+
+        plt.tight_layout()
+        plt.show()
+
+    CH = [img[Slice] - dark for Slice in Calibration["Slices"]]
+    if img.ndim == 3:
         CH[1] = CH[1] / Calibration["Bright"][0][:, :, None]
         CH[2] = CH[2] / Calibration["Bright"][1][:, :, None]
     else:
@@ -172,19 +234,58 @@ def Apply_Calibration(img, Calibration):
     return CH
 
 
-def Process_Img(img, Processing, ComputeMask=True):
+def Process_Img(img, Processing, ComputeMask=True, plot=DEBUG, title="DEBUG"):
     if Processing["Bkg_subtraction"] != 0:
-        tmp_img_bkg = img - skimage.filters.gaussian(img, Processing["Bkg_subtraction"])
-        tmp_img_bkg[tmp_img_bkg < 0] = 0
+        background = skimage.filters.gaussian(img, Processing["Bkg_subtraction"])
+        img_processed = img - background
     else:
-        tmp_img_bkg = img
+        background = None
+        img_processed = img
 
-    img_processed = median(tmp_img_bkg, disk(Processing["Median_filter"]))
+    if Processing["Median_filter"] > 0:
+        img_processed = median(img_processed, disk(Processing["Median_filter"]))
+
+    img_thresholded = img_processed.copy()
+    img_thresholded[img_thresholded < 0] = 0.0
 
     if ComputeMask:
-        masks = Processing["Cellpose_model"].eval(img_processed, diameter=Processing["Cellpose_diameter"])[0]
+        masks = Processing["Cellpose_model"].eval(img_thresholded, diameter=Processing["Cellpose_diameter"])[0]
     else:
         masks = []
+
+    if plot:
+        # Plot images used for segmentation
+        fig, axs = plt.subplots(1, 4, figsize=(12.8 * ASPECT, 4.8), dpi=DPI)
+        fig.suptitle(f"{title} - Segmentation")
+
+        ax = axs[0]
+        ax.set_title("Intensity")
+        ax.set_axis_off()
+        im = ax.imshow(img, vmin=0, cmap=CMAP, interpolation=INTERPOLATION)
+        plt.colorbar(im)
+
+        ax = axs[1]
+        ax.set_title("Background")
+        ax.set_axis_off()
+        if background is not None:
+            im = ax.imshow(background, cmap=CMAP, interpolation=INTERPOLATION)
+            plt.colorbar(im)
+
+        ax = axs[2]
+        ax.set_title("Processed")
+        ax.set_axis_off()
+        im = ax.imshow(img_processed, vmin=0, cmap=CMAP, interpolation=INTERPOLATION)
+        plt.colorbar(im)
+
+        ax = axs[3]
+        ax.set_title("Masks")
+        ax.set_axis_off()
+        im = ax.imshow(masks, vmin=0, cmap="nipy_spectral", interpolation=INTERPOLATION)
+        plt.colorbar(im)
+
+        plt.tight_layout()
+        plt.show()
+
     return img_processed, masks
 
 
@@ -221,10 +322,10 @@ def preprocess(folder_path, radius=None, sigma=None):
     return stack
 
 
-def norm_slicing(tld, img, dark, region=3, plots=False):
+def norm_slicing(tld, img, dark, region=3, plot=False):
     print("Automatically selecting ROIs...")
 
-    fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12, 4))
+    fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(12.8, 4.8))
     axs[0].imshow(img, cmap="gray", interpolation=INTERPOLATION)
     axs[0].set_title("Original")
     binary_mask = img > tld
@@ -254,8 +355,8 @@ def norm_slicing(tld, img, dark, region=3, plots=False):
     CH2_ROI = img[CH2_slice] - dark
     CH3_ROI = img[CH3_slice] - dark
 
-    if plots:
-        fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(6, 4))
+    if plot:
+        fig, axs = plt.subplots(nrows=1, ncols=3, dpi=DPI, figsize=(6.4, 4.8))
         axs[0].imshow(CH1_ROI, interpolation=INTERPOLATION)
         axs[0].set_title("CH1")
         axs[1].imshow(CH2_ROI, interpolation=INTERPOLATION)
@@ -270,11 +371,11 @@ def norm_slicing(tld, img, dark, region=3, plots=False):
     return CH1_ROI, CH2_ROI, CH3_ROI, CH1_slice, CH2_slice, CH3_slice
 
 
-def ratio_sc(ch1, ch2, ch3, plots=False):
+def ratio_sc(ch1, ch2, ch3, plot=False):
     print("Channel Ratios - Define and plot...")
     R_cos_int = ch2 / ch1
     R_sin_int = ch3 / ch1
-    if plots:
+    if plot:
         fig, axs = plt.subplots(ncols=2, dpi=DPI)
         axs = np.ravel(axs)
         axs[0].imshow(R_cos_int, vmin=0.5, vmax=1.5, cmap="bwr", interpolation=INTERPOLATION)
@@ -285,7 +386,22 @@ def ratio_sc(ch1, ch2, ch3, plots=False):
     return R_cos_int, R_sin_int
 
 
-def Calculate_Phasors(CH_list, calibration, Processing):
+def Calculate_Phasors(CH_list, calibration, Processing, plot=DEBUG, title="DEBUG"):
+    if plot:
+        vmax = None  # max(ch.max() for ch in CH_list)
+        fig, axs = plt.subplots(1, 3, figsize=(12.8 * ASPECT, 4.8), dpi=DPI)
+        fig.suptitle(f"{title} - Phasor calculation")
+        for i in range(3):
+            ax = axs[i]
+            ax.set_title(f"CH {i}")
+            im = ax.imshow(CH_list[i], vmin=0, vmax=vmax, cmap=CMAP, interpolation=INTERPOLATION)
+            if vmax is None or i == 2:
+                plt.colorbar(im)
+            if i != 0:
+                ax.set_axis_off()
+        plt.tight_layout()
+        plt.show()
+
     SinCos_Fcos = np.asarray(calibration["SinCos_Fcos"])
     SinCos_Fsin = np.asarray(calibration["SinCos_Fsin"])
     img_g = 2 * (CH_list[1] / CH_list[0] - SinCos_Fcos[0]) / (SinCos_Fcos[1] - SinCos_Fcos[0]) - 1
@@ -294,6 +410,23 @@ def Calculate_Phasors(CH_list, calibration, Processing):
     img_s = median(img_s, disk(Processing["Median_filter_GS"]))
     img_ph = np.arctan2(img_s, img_g) % (2 * math.pi)
     img_mod = np.hypot(img_g, img_s)
+
+    if plot:
+        # vmax = np.percentile(CH_list[0], 99.9)
+        vmax = CH_list[0].max()
+        fig, axs = plt.subplots(1, 2, figsize=(10.24, 4.8), dpi=DPI)
+        fig.suptitle(f"{title} - Phasor vs intensity")
+        ax = axs[0]
+        ax.set_xlabel("Phase")
+        ax.set_ylabel("Intensity")
+        ax.hist2d(img_ph.flat, CH_list[0].flat, bins=50, range=[[0, 2 * math.pi], [-10, vmax]], norm="log")
+        ax = axs[1]
+        ax.set_xlabel("Modulation")
+        ax.set_yticklabels([])
+        ax.hist2d(img_mod.flat, CH_list[0].flat, bins=50, range=[[0, 3], [-10, vmax]], norm="log")
+        plt.tight_layout()
+        plt.show()
+
     return img_g, img_s, img_ph, img_mod
 
 
@@ -336,7 +469,6 @@ def autocorr(CH_list):
 
 
 # @title **User input - Define Sine and Cosine filters parameters...**
-
 
 SinCos_Fsin = np.asarray([11.2, 92.8]) / 100
 SinCos_Fcos = np.asarray([10.9, 94.3]) / 100
@@ -402,14 +534,24 @@ if DEBUG:
 
 radius = 2.0
 sigma = 3.0
+dark_correction = 0.0  # additional dark counts to subtract
 
 radius = float(os.environ.get("PA_RADIUS", radius))
 sigma = float(os.environ.get("PA_SIGMA", sigma))
+dark_correction = float(os.environ.get("PA_DARK_CORRECTION", dark_correction))
 
 print("Loading Dark files... ")
+if DEBUG:
+    print(f"{radius=}")
+    print(f"{sigma=}")
+    print(f"{dark_correction=}")
+
 # Load dark path (for experiments) and calcute offset
 images_dark = preprocess(Dark_Path, radius=radius)
-dark = np.median(images_dark)
+dark = np.median(images_dark).item() + dark_correction
+
+if DEBUG:
+    print(f"{dark=}")
 
 print()
 print("Loading Bright-Dark files... ")
@@ -422,6 +564,31 @@ print("Loading Calibration files... ")
 # Load bright IMAGE and remove offset
 images_bright = preprocess(Bright_Path, radius=radius, sigma=sigma)
 img_bright = np.median(images_bright, 2) - bright_dark
+
+if DEBUG:
+    if images_bright.ndim == 3:
+        images_bright = np.median(images_bright, axis=2)
+    if images_bright_dark.ndim == 3:
+        images_bright_dark = np.median(images_bright_dark, axis=2)
+
+    fig, axs = plt.subplots(1, 3, figsize=(12.8, 4.8), dpi=DPI)
+    # fig.suptitle("Bright calibration image")
+    ax = axs[0]
+    ax.set_title("Bright")
+    im = ax.imshow(images_bright, vmin=bright_dark, cmap=CMAP, interpolation=INTERPOLATION)
+    fig.colorbar(im, orientation="horizontal")
+    ax = axs[1]
+    ax.set_title("Dark_Bright")
+    ax.set_axis_off()
+    im = ax.imshow(images_bright_dark, cmap=CMAP, interpolation=INTERPOLATION)
+    fig.colorbar(im, orientation="horizontal")
+    ax = axs[2]
+    ax.set_title(f"Bright - {bright_dark:.1f}")
+    ax.set_axis_off()
+    im = ax.imshow(img_bright, vmin=0, cmap=CMAP, interpolation=INTERPOLATION)
+    fig.colorbar(im, orientation="horizontal")
+    plt.tight_layout()
+    plt.show()
 
 
 # In[ ]:
@@ -511,12 +678,17 @@ Ch_slices = [
     for ch_slice in Ch_slices
 ]
 
-print("Channel Ratios - Define and plot...")
-fig, ax = plt.subplots(ncols=1, dpi=100)
-fig.suptitle("Channel ratios")
-min1 = np.percentile(img_exp[Ch_slices[0]], 1)
-max1 = np.percentile(img_exp[Ch_slices[0]], 99)
-ax.imshow(img_exp[Ch_slices[0]], vmin=min1, vmax=max1, interpolation=INTERPOLATION)
+img = img_exp[Ch_slices[0]]
+if DEBUG:
+    print(f"Image shape={img.shape}")
+# ASPECT = img.shape[1] / img.shape[0] * 2
+
+fig, ax = plt.subplots(ncols=1, figsize=(6.4 * ASPECT, 4.8), dpi=100)
+ax.set_title("Sliced and cropped image")
+vmin = np.percentile(img, 1)
+vmax = np.percentile(img, 99)
+im = ax.imshow(img, vmin=vmin, vmax=vmax, interpolation=INTERPOLATION)
+fig.colorbar(im)
 # ax.set_axis_off()
 plt.show()
 
@@ -527,6 +699,7 @@ plt.show()
 # @title **Automatic - Create experiment dictionary**
 
 # Calculate intensity ratios
+print("Channel Ratios - Define and plot...")
 CH1_ROI, CH2_ROI, CH3_ROI = (img_bright[Slice] for Slice in Ch_slices)
 R_cos_int, R_sin_int = ratio_sc(CH1_ROI, CH2_ROI, CH3_ROI)
 
@@ -576,7 +749,7 @@ img_exp = preprocess(Registration_Path, radius=calibration["Median Filter for ho
 
 print("Applying calibration...")
 # Load and process registration image
-CH1, CH2, CH3 = Apply_Calibration(img_exp, calibration)
+CH1, CH2, CH3 = Apply_Calibration(img_exp, calibration, plot=False)
 
 
 # In[ ]:
@@ -624,11 +797,11 @@ if DEBUG:
 # Create a list of slices
 CH_list = [np.mean(ch[:, :, :Time_binning], 2) for ch in [CH1, CH2, CH3]]
 # Compute image segmentation and generate masks
-tmp_img, masks = Process_Img(CH_list[0], Processing)
+tmp_img, masks = Process_Img(CH_list[0], Processing, plot=False)
 # Calculate the phasor using the calibration and processing parameters defined above
-img_g, img_s, img_ph, img_mod = Calculate_Phasors(CH_list, calibration, Processing)
+img_g, img_s, img_ph, img_mod = Calculate_Phasors(CH_list, calibration, Processing, plot=False)
 
-fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=(12, 4))
+fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=(12 * ASPECT, 4))
 axs[1].imshow(tmp_img, vmax=np.percentile(tmp_img, 99.9), cmap="hot", interpolation=INTERPOLATION)
 axs[1].set_title("Processed image")
 axs[1].set_axis_off()
@@ -684,7 +857,6 @@ np.save(fname, Processing)  # type: ignore[call-overload]
 
 
 # @title **Automatic - Process all experiment files**
-figsize = (12.8, 4.8)
 
 # Load experiments from folder
 Experiments_Path = []
@@ -731,13 +903,13 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         print("Loading...")
         img_exp = preprocess(exp_path, radius=Calibration["Median Filter for hot pixels removal"])
         print("Applying calibration...")
-        CH1, CH2, CH3 = Apply_Calibration(img_exp, Calibration)
+        CH1, CH2, CH3 = Apply_Calibration(img_exp, Calibration, title=fname)
         print("Applying time average...")
         CH1, CH2, CH3 = (np.median(ch[:, :, : Processing["Time_binning"]], 2) for ch in [CH1, CH2, CH3])
         print("Applying image processing...")
-        tmp_img, masks = Process_Img(CH1, Processing)
+        tmp_img, masks = Process_Img(CH1, Processing, title=fname)
         print("Calculating phasors...")
-        img_g, img_s, img_ph, img_mod = Calculate_Phasors([CH1, CH2, CH3], Calibration, Processing)
+        img_g, img_s, img_ph, img_mod = Calculate_Phasors([CH1, CH2, CH3], Calibration, Processing, title=fname)
 
         print("Plotting phasors...")
         cmap = plt.get_cmap("nipy_spectral")
@@ -745,7 +917,8 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         df = pd.DataFrame(columns=Columns, index=[])
 
         # Images - Phasors as median of g,s
-        fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=figsize)
+        fig, axs = plt.subplots(ncols=4, dpi=DPI, figsize=(12.8 * ASPECT, 4.8))
+        fig.suptitle(fname + " - Images")
         img1 = axs[0].imshow(masks, cmap="nipy_spectral", interpolation=INTERPOLATION)
         cbar = plt.colorbar(img1)
         axs[0].set_title("Cell index")
@@ -781,12 +954,14 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         cbar = plt.colorbar(img4)
         axs[3].set_title("Modulation")
         axs[3].set_axis_off()
-        plt.suptitle(fname + " - Images")
         plt.tight_layout()
         fig.savefig(exp_path + "_Images.png")
+        plt.tight_layout()
         plt.show()
 
-        fig, axs = plt.subplots(ncols=2, dpi=DPI, figsize=figsize)
+        # Phasor plot - Single cells and pixels
+        fig, axs = plt.subplots(ncols=2, dpi=DPI, figsize=(10.24 * ASPECT, 4.8))
+        fig.suptitle(fname + " - Phasors")
         gs_lim = 1
         axs[1].hist2d(
             img_g[masks > 0],
@@ -826,7 +1001,6 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
         axs[0].set_xlabel("g")
         axs[0].set_ylabel("s")
         axs[0].set_title("Phasor - Single cells")
-        plt.suptitle(fname + " - Phasors")
         plt.tight_layout()
         plt.savefig(exp_path + "_Phasors.png")
         plt.show()
@@ -870,7 +1044,7 @@ for i_exp, exp_path in enumerate(Experiments_Path[:]):
 
         cursors_masks = mask_from_circular_cursor(real, imag, cursor_real, cursor_imag, radius=cursor_radius)
 
-        fig, axs = plt.subplots(1, 2, figsize=(10, 4.8), dpi=DPI)
+        fig, axs = plt.subplots(1, 2, figsize=(10.24 * ASPECT, 4.8), dpi=DPI)
         fig.suptitle(f"{fname} - Cursors")
 
         phasorplot = PhasorPlot(ax=axs[0], allquadrants=True, title="Phasor plot")

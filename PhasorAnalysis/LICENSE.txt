@@ -1,7 +1,7 @@
 MIT License
 
-Additional Copyright (c) 2025 Christoph Gohlke
-Original Copyright (c) 2023-2025 Lorenzo Scipioni
+Copyright (c) 2025 Christoph Gohlke
+Copyright (c) 2023-2025 Lorenzo Scipioni
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
