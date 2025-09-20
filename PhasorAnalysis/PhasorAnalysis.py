@@ -99,6 +99,7 @@ import traceback
 
 import matplotlib
 import matplotlib.colors as mcolors
+import matplotlib.gridspec as gridspec
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
@@ -304,6 +305,7 @@ def preprocess(folder_path, radius=None, sigma=None):
     if not files:
         print(f"Error: No '.tif' files found in {folder_path!r}")
         return None  # Explicitly return None to signal an error
+    files = tifffile.natural_sorted(files)
     img = [tifffile.imread(os.path.join(folder_path, f)).astype(np.float32) for f in files]
     if radius is not None and radius > 0:
         print(f"Removing hot pixels with median filter {radius=} ...")
@@ -559,6 +561,9 @@ print("Loading Bright-Dark files... ")
 images_bright_dark = preprocess(Dark_Bright_Path, radius=radius)
 bright_dark = np.median(images_bright_dark)
 
+if DEBUG:
+    print(f"{bright_dark=}")
+
 print()
 print("Loading Calibration files... ")
 # Load bright IMAGE and remove offset
@@ -566,27 +571,94 @@ images_bright = preprocess(Bright_Path, radius=radius, sigma=sigma)
 img_bright = np.median(images_bright, 2) - bright_dark
 
 if DEBUG:
-    if images_bright.ndim == 3:
-        images_bright = np.median(images_bright, axis=2)
-    if images_bright_dark.ndim == 3:
-        images_bright_dark = np.median(images_bright_dark, axis=2)
+    if images_dark.ndim == 2:
+        images_dark = np.expand_dims(images_dark, axis=2)
+    if images_bright.ndim == 2:
+        images_bright = np.expand_dims(images_bright, axis=2)
+    if images_bright_dark.ndim == 2:
+        images_bright_dark = np.expand_dims(images_bright_dark, axis=2)
 
-    fig, axs = plt.subplots(1, 3, figsize=(12.8, 4.8), dpi=DPI)
-    # fig.suptitle("Bright calibration image")
-    ax = axs[0]
+    # fig, axs = plt.subplots(4, 3, figsize=(12.8, 10.24), dpi=DPI)
+    fig = plt.figure(figsize=(12.8, 12.8), dpi=DPI)
+    gs = gridspec.GridSpec(nrows=4, ncols=3, figure=fig, height_ratios=[2.5, 1, 1, 1])
+    # fig.suptitle("...")
+    ax = fig.add_subplot(gs[0, 0])
+    ax.set_title(f"Dark ({dark:.1f})")
+    im = ax.imshow(np.median(images_dark, axis=2), cmap=CMAP, interpolation=INTERPOLATION)
+    fig.colorbar(im, orientation="horizontal")
+    ax = fig.add_subplot(gs[1, 0])
+    ax.set_title("Dark")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Frame index")
+    ax.plot(np.median(images_dark, axis=(0, 1)), label="Median")
+    ax.plot(np.mean(images_dark, axis=(0, 1)), label="Mean")
+    ax.legend()
+    ax = fig.add_subplot(gs[2, 0])
+    ax.set_title("Dark")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Horizontal pixel")
+    ax.plot(np.median(images_dark, axis=(0, 2)), label="Median")
+    ax.plot(np.mean(images_dark, axis=(0, 2)), label="Mean")
+    ax.legend()
+    ax = fig.add_subplot(gs[3, 0])
+    ax.set_title("Dark")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Vertical pixel")
+    ax.plot(np.median(images_dark, axis=(1, 2)), label="Median")
+    ax.plot(np.mean(images_dark, axis=(1, 2)), label="Mean")
+    ax.legend()
+
+    ax = fig.add_subplot(gs[0, 1])
+    ax.set_title(f"Bright dark ({bright_dark:.1f})")
+    im = ax.imshow(np.median(images_bright_dark, axis=2), cmap=CMAP, interpolation=INTERPOLATION)
+    fig.colorbar(im, orientation="horizontal")
+    ax = fig.add_subplot(gs[1, 1])
+    ax.set_title("Bright dark")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Frame index")
+    ax.plot(np.median(images_bright_dark, axis=(0, 1)), label="Median")
+    ax.plot(np.mean(images_bright_dark, axis=(0, 1)), label="Mean")
+    ax.legend()
+    ax = fig.add_subplot(gs[2, 1])
+    ax.set_title("Bright dark")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Horizontal pixel")
+    ax.plot(np.median(images_bright_dark, axis=(0, 2)), label="Median")
+    ax.plot(np.mean(images_bright_dark, axis=(0, 2)), label="Mean")
+    ax.legend()
+    ax = fig.add_subplot(gs[3, 1])
+    ax.set_title("Bright dark")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Vertical pixel")
+    ax.plot(np.median(images_bright_dark, axis=(1, 2)), label="Median")
+    ax.plot(np.mean(images_bright_dark, axis=(1, 2)), label="Mean")
+    ax.legend()
+
+    ax = fig.add_subplot(gs[0, 2])
     ax.set_title("Bright")
-    im = ax.imshow(images_bright, vmin=bright_dark, cmap=CMAP, interpolation=INTERPOLATION)
+    im = ax.imshow(np.median(images_bright, axis=2), cmap=CMAP, interpolation=INTERPOLATION)
     fig.colorbar(im, orientation="horizontal")
-    ax = axs[1]
-    ax.set_title("Dark_Bright")
-    ax.set_axis_off()
-    im = ax.imshow(images_bright_dark, cmap=CMAP, interpolation=INTERPOLATION)
-    fig.colorbar(im, orientation="horizontal")
-    ax = axs[2]
-    ax.set_title(f"Bright - {bright_dark:.1f}")
-    ax.set_axis_off()
-    im = ax.imshow(img_bright, vmin=0, cmap=CMAP, interpolation=INTERPOLATION)
-    fig.colorbar(im, orientation="horizontal")
+    ax = fig.add_subplot(gs[1, 2])
+    ax.set_title("Bright")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Frame index")
+    ax.plot(np.median(images_bright, axis=(0, 1)), label="Median")
+    # ax.plot(np.mean(images_bright, axis=(0, 1)), label="Mean")
+    ax.legend()
+    ax = fig.add_subplot(gs[2, 2])
+    ax.set_title("Bright")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Horizontal pixel")
+    ax.plot(np.median(images_bright, axis=(0, 2)), label="Median")
+    # ax.plot(np.mean(images_bright, axis=(0, 2)), label="Mean")
+    ax.legend()
+    ax = fig.add_subplot(gs[3, 2])
+    ax.set_title("Bright")
+    ax.set_ylabel("Intensity")
+    ax.set_xlabel("Vertical pixel")
+    ax.plot(np.median(images_bright, axis=(1, 2)), label="Median")
+    # ax.plot(np.mean(images_bright, axis=(1, 2)), label="Mean")
+    ax.legend()
     plt.tight_layout()
     plt.show()
 
